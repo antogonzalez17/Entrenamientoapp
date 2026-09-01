@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuaderno de Programación</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1B2420;
+    --bg-panel:#223129;
+    --bg-panel-2:#28382F;
+    --bg-input:#1F2B25;
+    --chalk:#EDEDE6;
+    --chalk-dim:#A9B3AC;
+    --chalk-faint:#7C8A81;
+    --line:rgba(237,237,230,0.14);
+    --line-strong:rgba(237,237,230,0.30);
+    --yellow:#F2B705;
+    --yellow-dim:rgba(242,183,5,0.16);
+    --ember:#E4572E;
+    --ember-dim:rgba(228,87,46,0.16);
+    --sage:#7FB069;
+    --sage-dim:rgba(127,176,105,0.18);
+    --radius:3px;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--chalk);
+    font-family:var(--font-body);
+    font-size:14px;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:600;margin:0;letter-spacing:0.01em;}
+  p{margin:0;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  input,select,textarea{font-family:var(--font-body);}
+  a{color:inherit;}
+  ::selection{background:var(--yellow);color:#1B2420;}
+
+  /* ---------- layout ---------- */
+  #app{display:flex;min-height:100vh;}
+  #sidebar{
+    width:210px;flex:none;background:var(--bg-panel);
+    border-right:1px solid var(--line);
+    display:flex;flex-direction:column;
+    padding:20px 0;
+  }
+  .brand{padding:0 20px 20px 20px;border-bottom:1px solid var(--line);margin-bottom:14px;}
+  .brand-mark{width:34px;height:34px;border:1.5px solid var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;color:var(--yellow);font-size:15px;margin-bottom:10px;}
+  .brand h1{font-size:16px;color:var(--chalk);}
+  .brand span{display:block;font-size:11.5px;color:var(--chalk-faint);margin-top:2px;}
+  nav.side-nav{display:flex;flex-direction:column;gap:2px;padding:0 10px;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 10px;border-radius:var(--radius);
+    color:var(--chalk-dim);font-size:13.5px;font-weight:500;
+    border-left:2px solid transparent;
+    transition:background .12s ease, color .12s ease;
+  }
+  .nav-item:hover{background:var(--bg-panel-2);color:var(--chalk);}
+  .nav-item.active{background:var(--bg-panel-2);color:var(--chalk);border-left:2px solid var(--yellow);}
+  .nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;flex:none;}
+
+  #main-col{flex:1;min-width:0;display:flex;flex-direction:column;}
+  #topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;border-bottom:1px solid var(--line);
+    background:var(--bg);position:sticky;top:0;z-index:5;
+    flex-wrap:wrap;gap:12px;
+  }
+  .role-switch{display:flex;background:var(--bg-panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+  .role-switch button{
+    background:none;border:none;color:var(--chalk-dim);padding:7px 16px;font-size:13px;font-weight:600;
+  }
+  .role-switch button.active{background:var(--yellow);color:#1B2420;}
+  .athlete-picker-inline select{min-width:180px;}
+  #main{padding:26px 28px 60px 28px;flex:1;}
+
+  /* ---------- typography helpers ---------- */
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:20px;}
+  .section-head h2{font-size:22px;}
+  .section-head .sub{color:var(--chalk-dim);font-size:13px;margin-top:4px;}
+  .stat-num{font-family:var(--font-display);font-variant-numeric:tabular-nums;}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    border-radius:var(--radius);border:1px solid var(--line-strong);
+    background:var(--bg-panel-2);color:var(--chalk);
+    padding:8px 14px;font-size:13px;font-weight:600;
+  }
+  .btn:hover{border-color:var(--chalk-faint);}
+  .btn-primary{background:var(--yellow);border-color:var(--yellow);color:#1B2420;}
+  .btn-primary:hover{filter:brightness(1.06);}
+  .btn-ghost{background:none;border-color:transparent;color:var(--chalk-dim);padding:8px 10px;}
+  .btn-ghost:hover{color:var(--chalk);}
+  .btn-danger{background:none;border-color:var(--ember);color:var(--ember);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+  .btn:disabled{opacity:.4;cursor:default;}
+
+  /* ---------- cards ---------- */
+  .card{
+    position:relative;background:var(--bg-panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:16px 18px;
+  }
+  .card-tab{position:absolute;top:0;left:0;width:5px;height:22px;border-radius:0 0 2px 0;}
+  .tab-yellow{background:var(--yellow);}
+  .tab-ember{background:var(--ember);}
+  .tab-sage{background:var(--sage);}
+  .grid{display:grid;gap:14px;}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:900px){.grid-3{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:640px){.grid-3,.grid-2{grid-template-columns:1fr;}}
+
+  /* ---------- forms ---------- */
+  label{display:block;font-size:12px;color:var(--chalk-dim);margin-bottom:5px;font-weight:500;}
+  .field{margin-bottom:13px;}
+  input[type=text],input[type=email],input[type=date],input[type=number],select,textarea{
+    width:100%;background:var(--bg-input);border:1px solid var(--line-strong);
+    color:var(--chalk);border-radius:var(--radius);padding:8px 10px;font-size:13.5px;
+  }
+  textarea{resize:vertical;min-height:60px;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--yellow);}
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  fieldset{border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0 0 12px 0;}
+  legend{padding:0 6px;font-size:12px;color:var(--chalk-dim);}
+  .check-list{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto;padding:2px;}
+  .check-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+
+  /* ---------- table ---------- */
+  table{width:100%;border-collapse:collapse;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:13px;}
+  th{color:var(--chalk-dim);font-weight:600;font-size:11.5px;text-transform:none;}
+  td.num{font-variant-numeric:tabular-nums;}
+
+  /* ---------- chips / badges ---------- */
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:600;}
+  .badge-pending{background:var(--yellow-dim);color:var(--yellow);}
+  .badge-done{background:var(--sage-dim);color:var(--sage);}
+  .badge-type{background:var(--bg-panel-2);color:var(--chalk-dim);border:1px solid var(--line);}
+
+  /* ---------- empty state ---------- */
+  .empty{border:1px dashed var(--line-strong);border-radius:var(--radius);padding:34px 20px;text-align:center;color:var(--chalk-dim);}
+  .empty h3{color:var(--chalk);font-size:15px;margin-bottom:6px;}
+  .empty p{font-size:13px;margin-bottom:14px;}
+
+  /* ---------- list rows (athletes, exercises...) ---------- */
+  .list-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-panel);margin-bottom:8px;gap:12px;flex-wrap:wrap;}
+  .list-row .meta{color:var(--chalk-dim);font-size:12.5px;}
+  .list-row .actions{display:flex;gap:6px;}
+
+  /* ---------- modal ---------- */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(10,14,11,0.6);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50;}
+  .modal{background:var(--bg-panel);border:1px solid var(--line-strong);border-radius:var(--radius);width:100%;max-width:560px;padding:22px 24px;}
+  .modal h3{font-size:16px;margin-bottom:16px;}
+  .modal-close{float:right;background:none;border:none;color:var(--chalk-dim);font-size:18px;line-height:1;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);}
+
+  /* ---------- gauge ---------- */
+  .gauge-wrap{display:flex;align-items:center;gap:16px;}
+  .gauge-num{font-family:var(--font-display);font-size:26px;}
+  .gauge-label{font-size:12px;color:var(--chalk-dim);}
+
+  /* ---------- week board ---------- */
+  .week-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;}
+  @media(max-width:900px){.week-grid{grid-template-columns:repeat(2,1fr);}}
+  .day-col{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-panel);min-height:120px;padding:10px;}
+  .day-head{font-size:11.5px;color:var(--chalk-dim);margin-bottom:8px;text-transform:capitalize;}
+  .day-head.today{color:var(--yellow);}
+  .day-item{background:var(--bg-panel-2);border:1px solid var(--line);border-radius:var(--radius);padding:7px 8px;margin-bottom:6px;font-size:12px;cursor:pointer;}
+  .day-item:hover{border-color:var(--chalk-faint);}
+  .day-item .t{font-weight:600;display:block;margin-bottom:2px;}
+
+  /* block editor */
+  .video-link{color:var(--yellow);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap;}
+  .video-link:hover{text-decoration:underline;}
+  button.video-link{background:none;border:none;padding:0;cursor:pointer;font-family:var(--font-body);}
+  .video-player-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:14px;}
+  .video-player-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .video-frame{position:relative;padding-top:56.25%;height:0;overflow:hidden;border-radius:var(--radius);border:1px solid var(--line);background:#000;}
+  .video-frame iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;}
+
+  /* ---------- exercise search & tags ---------- */
+  .tag-grid{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag-chip{border:1px solid var(--line-strong);background:var(--bg-input);color:var(--chalk-dim);padding:5px 10px;border-radius:20px;font-size:12px;}
+  .tag-chip.selected{background:var(--yellow-dim);border-color:var(--yellow);color:var(--yellow);font-weight:600;}
+  .ex-thumb{width:34px;height:34px;border-radius:2px;object-fit:cover;flex:none;background:var(--bg-input);}
+  .ex-thumb-placeholder{width:34px;height:34px;border-radius:2px;flex:none;background:var(--bg-input);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--chalk-faint);}
+  .ex-search-wrap{position:relative;}
+  .ex-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--bg-panel);border:1px solid var(--line-strong);border-radius:var(--radius);max-height:220px;overflow:auto;z-index:20;margin-top:2px;}
+  .ex-dropdown-item{display:flex;gap:8px;align-items:center;padding:7px 9px;cursor:pointer;border-bottom:1px solid var(--line);}
+  .ex-dropdown-item:last-child{border-bottom:none;}
+  .ex-dropdown-item:hover{background:var(--bg-panel-2);}
+  .ex-dd-name{font-size:12.5px;font-weight:600;}
+  .ex-dd-tags{font-size:10.5px;color:var(--chalk-dim);margin-top:2px;}
+
+  /* ---------- nested session block editor ---------- */
+  .block-editor{border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin-bottom:14px;background:var(--bg-panel-2);}
+  .block-editor-head{display:flex;gap:8px;margin-bottom:10px;}
+  .block-editor-head input{flex:1;font-weight:600;}
+  .ex-row{display:grid;grid-template-columns:1.3fr .55fr .55fr .7fr .7fr 1fr 1fr auto;gap:6px;align-items:start;margin-bottom:6px;}
+  @media(max-width:760px){.ex-row{grid-template-columns:1fr 1fr;}}
+  .ex-row input{padding:6px 8px;font-size:12.5px;}
+
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--bg-panel-2);border:1px solid var(--line-strong);padding:10px 16px;border-radius:var(--radius);font-size:13px;z-index:100;box-shadow:none;}
+  .scale-opts{display:flex;gap:6px;flex-wrap:wrap;}
+  .scale-opt{border:1px solid var(--line-strong);background:var(--bg-input);color:var(--chalk-dim);padding:7px 12px;border-radius:var(--radius);font-size:13px;font-variant-numeric:tabular-nums;}
+  .scale-opt.selected{background:var(--yellow);border-color:var(--yellow);color:#1B2420;font-weight:700;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+
+  @media(max-width:760px){
+    #app{flex-direction:column;}
+    #sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:12px;}
+    .brand{display:none;}
+    nav.side-nav{flex-direction:row;padding:0;}
+    #main{padding:18px 16px 60px 16px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CP</div>
+      <h1>Cuaderno de Programación</h1>
+      <span>planificación y seguimiento</span>
+    </div>
+    <nav class="side-nav" id="sideNav"></nav>
+  </aside>
+  <div id="main-col">
+    <div id="topbar"></div>
+    <main id="main"></main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+/* ==================== SUPABASE (BASE DE DATOS PROPIA) ==================== */
+const SUPABASE_URL = 'https://evmxurlyefwmihfyxgrj.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_6gH5qHTYFqiWSrwDFm5Hyg_kDxVOkjA';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ==================== STORAGE HELPERS ==================== */
+// Datos "shared" (deportistas, ejercicios, sesiones...) viven en Supabase,
+// compartidos entre tú y todos tus deportistas.
+// Datos "personales" (qué rol/perfil estás viendo en este navegador) se
+// guardan en localStorage, solo para este dispositivo.
+async function loadKey(key, fallback, shared){
+  if(!shared){
+    try{
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(e){ return fallback; }
+  }
+  try{
+    const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
+    if(error){ console.error(error); return fallback; }
+    return data ? data.value : fallback;
+  }catch(e){ console.error(e); return fallback; }
+}
+async function saveKey(key, value, shared){
+  if(!shared){
+    try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch(e){ toast('No se pudo guardar.'); return null; }
+  }
+  try{
+    const { error } = await sb.from('app_data').upsert({ key, value }, { onConflict: 'key' });
+    if(error){ toast('No se pudo guardar. Revisa tu conexión.'); console.error(error); return null; }
+    return true;
+  }catch(e){ toast('Error al guardar.'); console.error(e); return null; }
+}
+
+/* ==================== STATE ==================== */
+let state = {
+  athletes: [],
+  exercises: [],
+  sessionTemplates: [],
+  qTemplates: [],
+  assignments: [],
+  qAssignments: [],
+  appLink: ''
+};
+let view = { role:'coach', athleteId:null, section:'panel' };
+let weekOffset = 0; // for calendar/week views
+let calendarAthleteFilter = 'all';
+let loaded = false;
+
+function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+const TAG_OPTIONS = ['Fuerza','Resistencia','Velocidad','Excéntrico','Isométrico','Concéntrico','Dinámico','Tren superior','Tren inferior','Full body','Core','Movilidad','Técnica','Otro'];
+
+function migrateBlocks(blocks){
+  if(!blocks || !blocks.length) return [];
+  if(blocks[0] && Array.isArray(blocks[0].exercises)) return blocks;
+  return [{id:uid('blk'), name:'Bloque 1', exercises: blocks.map(b=>({
+    id: b.id || uid('exx'), exerciseName:b.exerciseName||'', sets:b.sets||'', reps:b.reps||'',
+    load:b.load||'', rest:b.rest||'', videoUrl:b.videoUrl||'', notes:b.notes||'', done: b.done||false
+  }))}];
+}
+
+async function loadAll(){
+  const [athletes, exercises, sessionTemplates, qTemplates, assignments, qAssignments, pref, appLink] = await Promise.all([
+    loadKey('athletes', [], true),
+    loadKey('exercises', [], true),
+    loadKey('session-templates', [], true),
+    loadKey('questionnaire-templates', defaultQuestionnaires(), true),
+    loadKey('assignments', [], true),
+    loadKey('questionnaire-assignments', [], true),
+    loadKey('view-preference', {role:'coach', athleteId:null}, false),
+    loadKey('app-link', '', false)
+  ]);
+  const migratedExercises = exercises.map(e=>({...e, categories: Array.isArray(e.categories) ? e.categories : (e.category ? [e.category] : [])}));
+  const migratedSessionTemplates = sessionTemplates.map(s=>({...s, blocks: migrateBlocks(s.blocks)}));
+  const migratedAssignments = assignments.map(a=>({...a, blocks: migrateBlocks(a.blocks)}));
+  state = {athletes, exercises:migratedExercises, sessionTemplates:migratedSessionTemplates, qTemplates, assignments:migratedAssignments, qAssignments, appLink};
+  view.role = pref.role || 'coach';
+  view.athleteId = pref.athleteId || null;
+  view.section = view.role === 'coach' ? 'panel' : (view.athleteId ? 'week' : 'week');
+  loaded = true;
+}
+
+function defaultQuestionnaires(){
+  return [
+    {id: uid('q'), name:'Wellness diario', type:'wellness', questions:[
+      {id:uid('qq'), text:'¿Cómo dormiste?', type:'escala', min:1, max:5},
+      {id:uid('qq'), text:'Nivel de fatiga muscular', type:'escala', min:1, max:5},
+      {id:uid('qq'), text:'Nivel de estrés', type:'escala', min:1, max:5},
+      {id:uid('qq'), text:'Estado de ánimo', type:'escala', min:1, max:5},
+      {id:uid('qq'), text:'Energía disponible para entrenar', type:'escala', min:1, max:5}
+    ]},
+    {id: uid('q'), name:'RPE de sesión', type:'rpe', questions:[
+      {id:uid('qq'), text:'Esfuerzo percibido (RPE)', type:'escala', min:1, max:10},
+      {id:uid('qq'), text:'Comentario sobre la sesión', type:'texto'}
+    ]}
+  ];
+}
+
+async function savePref(){
+  await saveKey('view-preference', {role:view.role, athleteId:view.athleteId}, false);
+}
+async function persist(key, shared=true){
+  const map = {
+    athletes:'athletes', exercises:'exercises', sessionTemplates:'session-templates',
+    qTemplates:'questionnaire-templates', assignments:'assignments', qAssignments:'questionnaire-assignments'
+  };
+  await saveKey(map[key], state[key], shared);
+}
+
+function toast(msg){
+  const el = document.createElement('div');
+  el.className='toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2600);
+}
+
+/* ==================== NAV CONFIG ==================== */
+const coachNav = [
+  {id:'panel', label:'Panel'},
+  {id:'athletes', label:'Deportistas'},
+  {id:'share', label:'Compartir'},
+  {id:'exercises', label:'Ejercicios'},
+  {id:'sessions', label:'Sesiones'},
+  {id:'questionnaires', label:'Cuestionarios'},
+  {id:'calendar', label:'Calendario'},
+  {id:'tracking', label:'Seguimiento'}
+];
+const athleteNav = [
+  {id:'week', label:'Mi semana'},
+  {id:'history', label:'Historial'}
+];
+
+/* ==================== RENDER SHELL ==================== */
+function renderShell(){
+  renderSideNav();
+  renderTopbar();
+}
+
+function renderSideNav(){
+  const nav = view.role==='coach' ? coachNav : athleteNav;
+  const el = document.getElementById('sideNav');
+  el.innerHTML = nav.map(n => `
+    <div class="nav-item ${view.section===n.id?'active':''}" data-nav="${n.id}">
+      <span class="nav-dot"></span>${n.label}
+    </div>`).join('');
+  el.querySelectorAll('[data-nav]').forEach(item=>{
+    item.addEventListener('click', ()=>{ view.section = item.getAttribute('data-nav'); render(); });
+  });
+}
+
+function renderTopbar(){
+  const el = document.getElementById('topbar');
+  let athletePicker = '';
+  if(view.role==='athlete'){
+    athletePicker = `<div class="athlete-picker-inline">
+      <select id="athleteSelect">
+        <option value="">Elige tu perfil…</option>
+        ${state.athletes.map(a=>`<option value="${a.id}" ${a.id===view.athleteId?'selected':''}>${esc(a.name)}</option>`).join('')}
+      </select>
+    </div>`;
+  }
+  el.innerHTML = `
+    <div class="role-switch">
+      <button data-role="coach" class="${view.role==='coach'?'active':''}">Entrenador</button>
+      <button data-role="athlete" class="${view.role==='athlete'?'active':''}">Deportista</button>
+    </div>
+    ${athletePicker}
+  `;
+  el.querySelectorAll('[data-role]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      view.role = btn.getAttribute('data-role');
+      view.section = view.role==='coach' ? 'panel' : 'week';
+      if(view.role==='athlete' && !view.athleteId) view.section='week';
+      savePref(); render();
+    });
+  });
+  const sel = document.getElementById('athleteSelect');
+  if(sel) sel.addEventListener('change', ()=>{ view.athleteId = sel.value || null; savePref(); render(); });
+}
+
+function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('es-ES', {weekday:'short', day:'2-digit', month:'short'});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addDays(iso, n){ const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function startOfWeek(iso){
+  const d = new Date(iso+'T00:00:00');
+  const day = (d.getDay()+6)%7; // Monday=0
+  d.setDate(d.getDate()-day);
+  return d.toISOString().slice(0,10);
+}
+function athleteName(id){ const a = state.athletes.find(x=>x.id===id); return a? a.name : '—'; }
+function normalizeUrl(u){
+  if(!u) return '';
+  const t = u.trim();
+  if(!t) return '';
+  return /^https?:\/\//i.test(t) ? t : 'https://'+t;
+}
+function youTubeId(url){
+  const u = normalizeUrl(url); if(!u) return null;
+  try{
+    const parsed = new URL(u);
+    const host = parsed.hostname.replace(/^www\.|^m\./,'');
+    if(host==='youtube.com'){
+      let id = parsed.searchParams.get('v');
+      if(!id && parsed.pathname.startsWith('/shorts/')) id = parsed.pathname.split('/')[2];
+      if(!id && parsed.pathname.startsWith('/embed/')) id = parsed.pathname.split('/')[2];
+      return id || null;
+    }
+    if(host==='youtu.be'){ return parsed.pathname.slice(1).split('/')[0] || null; }
+  }catch(e){ return null; }
+  return null;
+}
+function vimeoId(url){
+  const u = normalizeUrl(url); if(!u) return null;
+  try{
+    const parsed = new URL(u);
+    const host = parsed.hostname.replace(/^www\.|^m\./,'');
+    if(host==='vimeo.com'){
+      const id = parsed.pathname.split('/').filter(Boolean)[0];
+      return id && /^\d+$/.test(id) ? id : null;
+    }
+  }catch(e){ return null; }
+  return null;
+}
+function embedSrc(url){
+  const yid = youTubeId(url);
+  if(yid) return `https://www.youtube.com/embed/${yid}`;
+  const vid = vimeoId(url);
+  if(vid) return `https://player.vimeo.com/video/${vid}`;
+  return null;
+}
+function thumbUrl(exOrUrl){
+  const url = typeof exOrUrl==='string' ? exOrUrl : exOrUrl.videoUrl;
+  const yid = youTubeId(url);
+  return yid ? `https://img.youtube.com/vi/${yid}/mqdefault.jpg` : null;
+}
+function showVideoPlayer(container, url, title){
+  const player = container.querySelector('#videoPlayerArea');
+  if(!player) return;
+  const embed = embedSrc(url);
+  if(embed){
+    player.innerHTML = `<div class="video-player-wrap">
+      <div class="video-player-head"><strong>${esc(title)}</strong><button class="btn btn-ghost btn-sm" id="closeVideoBtn">Cerrar ✕</button></div>
+      <div class="video-frame"><iframe src="${embed}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+    </div>`;
+  } else {
+    player.innerHTML = `<div class="video-player-wrap">
+      <div class="video-player-head"><strong>${esc(title)}</strong><button class="btn btn-ghost btn-sm" id="closeVideoBtn">Cerrar ✕</button></div>
+      <p class="meta">Esta plataforma no se puede previsualizar aquí dentro. <a class="video-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Abrir en una pestaña nueva ↗</a></p>
+    </div>`;
+  }
+  player.querySelector('#closeVideoBtn').addEventListener('click', ()=>{ player.innerHTML=''; });
+  player.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+/* ==================== MODAL SYSTEM ==================== */
+function openModal(title, bodyHtml, onMount){
+  closeModal();
+  const backdrop = document.createElement('div');
+  backdrop.className='modal-backdrop'; backdrop.id='modalBackdrop';
+  backdrop.innerHTML = `<div class="modal">
+    <button class="modal-close" id="modalCloseBtn">&times;</button>
+    <h3>${title}</h3>
+    <div id="modalBody">${bodyHtml}</div>
+  </div>`;
+  document.body.appendChild(backdrop);
+  document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) closeModal(); });
+  if(onMount) onMount(document.getElementById('modalBody'));
+}
+function closeModal(){ const b = document.getElementById('modalBackdrop'); if(b) b.remove(); }
+
+/* ==================== RENDER DISPATCH ==================== */
+function render(){
+  renderShell();
+  const main = document.getElementById('main');
+  main.innerHTML='';
+  if(view.role==='coach'){
+    if(view.section==='panel') renderCoachPanel(main);
+    else if(view.section==='athletes') renderAthletes(main);
+    else if(view.section==='share') renderShare(main);
+    else if(view.section==='exercises') renderExercises(main);
+    else if(view.section==='sessions') renderSessionTemplates(main);
+    else if(view.section==='questionnaires') renderQTemplates(main);
+    else if(view.section==='calendar') renderCalendar(main);
+    else if(view.section==='tracking') renderTracking(main);
+  } else {
+    if(!view.athleteId){ renderAthletePicker(main); return; }
+    if(view.section==='week') renderAthleteWeek(main);
+    else if(view.section==='history') renderAthleteHistory(main);
+  }
+}
+
+/* ==================== COACH: PANEL ==================== */
+function renderCoachPanel(main){
+  const week0 = startOfWeek(todayISO());
+  const week1 = addDays(week0,7);
+  const sessionsWeek = state.assignments.filter(a=> a.date>=week0 && a.date<week1);
+  const pending = sessionsWeek.filter(a=>a.status==='pendiente').length;
+  const done = sessionsWeek.filter(a=>a.status==='completada').length;
+
+  const last7 = addDays(todayISO(),-7);
+  const wellnessResp = [];
+  const rpeResp = [];
+  state.qAssignments.filter(qa=>qa.status==='completada' && qa.date>=last7).forEach(qa=>{
+    qa.questions.forEach(q=>{
+      if(q.type==='escala'){
+        const v = qa.responses[q.id];
+        if(v!=null && v!==''){
+          if(qa.type==='wellness') wellnessResp.push(Number(v)/q.max*100);
+          if(qa.type==='rpe') rpeResp.push(Number(v));
+        }
+      }
+    });
+  });
+  const wellnessAvg = wellnessResp.length? Math.round(wellnessResp.reduce((a,b)=>a+b,0)/wellnessResp.length) : null;
+  const rpeAvg = rpeResp.length? (rpeResp.reduce((a,b)=>a+b,0)/rpeResp.length).toFixed(1) : null;
+
+  const recentFeedback = state.assignments.filter(a=>a.status==='completada' && a.athleteNotes)
+    .sort((a,b)=> (b.completedAt||'').localeCompare(a.completedAt||'')).slice(0,5);
+
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Panel</h2><div class="sub">Resumen de esta semana</div></div>
+    </div>
+    <div class="grid grid-3" style="margin-bottom:20px;">
+      <div class="card"><div class="card-tab tab-yellow"></div>
+        <div class="gauge-label">Deportistas activos</div>
+        <div class="stat-num" style="font-size:28px;margin-top:4px;">${state.athletes.length}</div>
+      </div>
+      <div class="card"><div class="card-tab tab-sage"></div>
+        <div class="gauge-label">Sesiones completadas (semana)</div>
+        <div class="stat-num" style="font-size:28px;margin-top:4px;">${done}</div>
+      </div>
+      <div class="card"><div class="card-tab tab-ember"></div>
+        <div class="gauge-label">Sesiones pendientes (semana)</div>
+        <div class="stat-num" style="font-size:28px;margin-top:4px;">${pending}</div>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:20px;align-items:stretch;">
+      <div class="card">
+        <div class="gauge-label" style="margin-bottom:10px;">Wellness medio (últimos 7 días)</div>
+        ${wellnessAvg==null ? emptyInline('Aún sin respuestas de wellness.') : gaugeSVG(wellnessAvg,100,'/100','var(--sage)')}
+      </div>
+      <div class="card">
+        <div class="gauge-label" style="margin-bottom:10px;">RPE medio de sesión (últimos 7 días)</div>
+        ${rpeAvg==null ? emptyInline('Aún sin respuestas de RPE.') : gaugeSVG(Math.round(rpeAvg/10*100),100,rpeAvg+'/10','var(--ember)')}
+      </div>
+    </div>
+    <h3 style="font-size:15px;margin-bottom:10px;">Comentarios recientes de deportistas</h3>
+    <div id="recentFeedback"></div>
+  `;
+  const fbEl = main.querySelector('#recentFeedback');
+  if(!recentFeedback.length){
+    fbEl.innerHTML = emptyInline('Todavía no hay comentarios de sesiones completadas.');
+  } else {
+    fbEl.innerHTML = recentFeedback.map(a=>`
+      <div class="list-row">
+        <div>
+          <strong>${esc(athleteName(a.athleteId))}</strong> — ${esc(a.templateName)}
+          <div class="meta">${fmtDate(a.date)}${a.rpe? ' · RPE '+a.rpe : ''}</div>
+          <div style="margin-top:6px;">${esc(a.athleteNotes)}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+function emptyInline(msg){ return `<div class="meta" style="color:var(--chalk-faint);">${msg}</div>`; }
+
+function gaugeSVG(value, max, centerLabel, color){
+  const pct = Math.max(0,Math.min(1, value/max));
+  const r = 34, c = 2*Math.PI*r;
+  const dash = c*pct;
+  return `<div class="gauge-wrap">
+    <svg width="84" height="84" viewBox="0 0 84 84">
+      <circle cx="42" cy="42" r="${r}" fill="none" stroke="var(--line)" stroke-width="7"/>
+      <circle cx="42" cy="42" r="${r}" fill="none" stroke="${color}" stroke-width="7"
+        stroke-dasharray="${dash} ${c-dash}" stroke-linecap="round"
+        transform="rotate(-90 42 42)"/>
+      <text x="42" y="47" text-anchor="middle" font-family="Space Grotesk" font-size="15" fill="var(--chalk)">${centerLabel}</text>
+    </svg>
+  </div>`;
+}
+
+/* ==================== COACH: ATHLETES ==================== */
+function renderAthletes(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Deportistas</h2><div class="sub">Tu comunidad de deportistas</div></div>
+      <button class="btn btn-primary" id="addAthleteBtn">+ Añadir deportista</button>
+    </div>
+    <div id="athleteList"></div>
+  `;
+  document.getElementById('addAthleteBtn').addEventListener('click', ()=>athleteForm());
+  const list = document.getElementById('athleteList');
+  if(!state.athletes.length){
+    list.innerHTML = `<div class="empty"><h3>Todavía no hay deportistas</h3><p>Añade a la primera persona de tu comunidad para empezar a programarle trabajo.</p></div>`;
+    return;
+  }
+  list.innerHTML = state.athletes.map(a=>`
+    <div class="list-row">
+      <div>
+        <strong>${esc(a.name)}</strong>
+        <div class="meta">${esc(a.sport||'—')}${a.email? ' · '+esc(a.email) : ''}</div>
+        ${a.notes? `<div class="meta" style="margin-top:4px;">${esc(a.notes)}</div>` : ''}
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm btn-primary" data-invite="${a.id}">Invitar</button>
+        <button class="btn btn-sm" data-edit="${a.id}">Editar</button>
+        <button class="btn btn-sm btn-danger" data-del="${a.id}">Eliminar</button>
+      </div>
+    </div>`).join('');
+  list.querySelectorAll('[data-invite]').forEach(b=>b.addEventListener('click', ()=>inviteModal(b.getAttribute('data-invite'))));
+  list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>athleteForm(b.getAttribute('data-edit'))));
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+    const id = b.getAttribute('data-del');
+    if(confirm('¿Eliminar a este deportista? No se borrarán sus sesiones ya asignadas.')){
+      state.athletes = state.athletes.filter(a=>a.id!==id);
+      persist('athletes'); render();
+    }
+  }));
+}
+function athleteForm(id){
+  const a = id ? state.athletes.find(x=>x.id===id) : {id:uid('ath'), name:'', sport:'', email:'', phone:'', notes:''};
+  openModal(id?'Editar deportista':'Nuevo deportista', `
+    <div class="field"><label>Nombre</label><input type="text" id="f_name" value="${esc(a.name)}"></div>
+    <div class="row">
+      <div class="field"><label>Deporte / disciplina</label><input type="text" id="f_sport" value="${esc(a.sport)}"></div>
+      <div class="field"><label>Email (opcional)</label><input type="email" id="f_email" value="${esc(a.email)}"></div>
+    </div>
+    <div class="field"><label>Teléfono (opcional, para invitar por WhatsApp)</label><input type="text" id="f_phone" value="${esc(a.phone)}" placeholder="+34 600 000 000"></div>
+    <div class="field"><label>Notas</label><textarea id="f_notes">${esc(a.notes)}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar</button>
+    </div>
+  `, (body)=>{
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+      const name = body.querySelector('#f_name').value.trim();
+      if(!name){ toast('Ponle un nombre al deportista.'); return; }
+      a.name=name; a.sport=body.querySelector('#f_sport').value.trim();
+      a.email=body.querySelector('#f_email').value.trim(); a.phone=body.querySelector('#f_phone').value.trim();
+      a.notes=body.querySelector('#f_notes').value.trim();
+      if(!id) state.athletes.push(a);
+      persist('athletes'); closeModal(); render();
+    });
+  });
+}
+
+/* ==================== COACH: SHARE / INVITE ==================== */
+function defaultInviteText(link, name){
+  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+  return `${greet} Te invito a mi app de entrenamiento. Ahí voy a programarte las sesiones y los cuestionarios (wellness, RPE...), y podrás verlos y responder directamente desde tu móvil.\n\nEntra aquí: ${link || '[pega el enlace de la app]'}\n\nAl abrirla, pulsa "Deportista" arriba y elige tu perfil${name? ' ("'+name+'")' : ''}.`;
+}
+function mailtoLink(to, subject, body){
+  return `mailto:${encodeURIComponent(to||'')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+function whatsappLink(phone, text){
+  const clean = (phone||'').replace(/[^\d+]/g,'').replace(/^\+/,'');
+  return clean ? `https://wa.me/${clean}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); toast('Mensaje copiado.'); }
+  catch(e){ toast('No se pudo copiar automáticamente. Selecciónalo y cópialo a mano.'); }
+}
+function shareLinkStatusHtml(){
+  if(state.appLink){
+    return `<div class="field"><label>Enlace publicado de tu app</label>
+      <div class="row"><input type="text" id="f_link" value="${esc(state.appLink)}"><button class="btn btn-sm" id="saveLinkBtn">Guardar</button></div>
+    </div>`;
+  }
+  return `<div class="empty" style="text-align:left;padding:16px 18px;margin-bottom:14px;">
+    <h3 style="font-size:14px;">Aún no tienes un enlace público</h3>
+    <p>Esta app vive dentro de Claude. Para que tus deportistas puedan abrirla desde su móvil sin pasar por ti cada vez, publícala: abre este artefacto en Claude y pulsa <strong>«Publicar»</strong> (arriba a la derecha del artefacto). Te dará un enlace público — pégalo aquí abajo.</p>
+    <div class="field"><label>Pega aquí tu enlace publicado</label>
+      <div class="row"><input type="text" id="f_link" placeholder="https://claude.ai/..."><button class="btn btn-sm btn-primary" id="saveLinkBtn">Guardar</button></div>
+    </div>
+  </div>`;
+}
+function renderShare(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Compartir</h2><div class="sub">Invita a tu comunidad a usar la app</div></div>
+    </div>
+    <div class="card" style="margin-bottom:22px;">
+      ${shareLinkStatusHtml()}
+      <div class="field" style="margin-top:6px;"><label>Mensaje de invitación (general)</label>
+        <textarea id="genericMsg">${esc(defaultInviteText(state.appLink))}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="genMail">Enviar por email</button>
+        <button class="btn" id="genWa">Enviar por WhatsApp</button>
+        <button class="btn" id="genShare">Compartir…</button>
+        <button class="btn" id="genCopy">Copiar mensaje</button>
+      </div>
+      <p class="meta" style="margin-top:10px;">Estos botones abren tu propio correo, WhatsApp o el panel de compartir de tu móvil/navegador con el mensaje ya escrito — tú decides a quién enviarlo. No mando nada en tu nombre.</p>
+    </div>
+    <h3 style="font-size:15px;margin-bottom:10px;">Invitar uno a uno</h3>
+    <div id="shareAthList"></div>
+  `;
+  const linkInput = main.querySelector('#f_link');
+  if(linkInput){
+    main.querySelector('#saveLinkBtn').addEventListener('click', async ()=>{
+      state.appLink = linkInput.value.trim();
+      await saveKey('app-link', state.appLink, false);
+      toast('Enlace guardado.'); render();
+    });
+  }
+  const genericMsgArea = main.querySelector('#genericMsg');
+  main.querySelector('#genMail').addEventListener('click', ()=>{ location.href = mailtoLink('', 'Invitación a mi app de entrenamiento', genericMsgArea.value); });
+  main.querySelector('#genWa').addEventListener('click', ()=>{ window.open(whatsappLink('', genericMsgArea.value), '_blank'); });
+  main.querySelector('#genCopy').addEventListener('click', ()=>copyText(genericMsgArea.value));
+  main.querySelector('#genShare').addEventListener('click', async ()=>{
+    if(navigator.share){
+      try{ await navigator.share({title:'Mi app de entrenamiento', text: genericMsgArea.value}); }
+      catch(e){ /* cancelado por el usuario */ }
+    } else { copyText(genericMsgArea.value); toast('Tu navegador no tiene panel de compartir — mensaje copiado, pégalo donde quieras.'); }
+  });
+
+  const list = main.querySelector('#shareAthList');
+  if(!state.athletes.length){
+    list.innerHTML = emptyBlock('Añade deportistas para poder invitarlos individualmente.');
+    return;
+  }
+  list.innerHTML = state.athletes.map(a=>`
+    <div class="list-row">
+      <div><strong>${esc(a.name)}</strong>
+        <div class="meta">${a.email? esc(a.email):'sin email'}${a.phone? ' · '+esc(a.phone):''}</div>
+      </div>
+      <div class="actions"><button class="btn btn-sm btn-primary" data-invite="${a.id}">Invitar</button></div>
+    </div>`).join('');
+  list.querySelectorAll('[data-invite]').forEach(b=>b.addEventListener('click', ()=>inviteModal(b.getAttribute('data-invite'))));
+}
+function inviteModal(athleteId){
+  const a = state.athletes.find(x=>x.id===athleteId);
+  const text = defaultInviteText(state.appLink, a.name);
+  openModal(`Invitar a ${esc(a.name)}`, `
+    <div class="field"><label>Mensaje</label><textarea id="msgArea" rows="7">${esc(text)}</textarea></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn" id="mMail">Email${a.email? '' : ' (elige destinatario)'}</button>
+      <button class="btn" id="mWa">WhatsApp${a.phone? '' : ' (elige destinatario)'}</button>
+      <button class="btn" id="mShare">Compartir…</button>
+      <button class="btn" id="mCopy">Copiar</button>
+    </div>
+    ${!state.appLink? '<p class="meta" style="margin-top:10px;">Aún no has guardado el enlace público de tu app — añádelo en «Compartir» para que quede incluido aquí.</p>':''}
+  `, (body)=>{
+    const msg = body.querySelector('#msgArea');
+    body.querySelector('#mMail').addEventListener('click', ()=>{ location.href = mailtoLink(a.email, 'Invitación a mi app de entrenamiento', msg.value); });
+    body.querySelector('#mWa').addEventListener('click', ()=>{ window.open(whatsappLink(a.phone, msg.value), '_blank'); });
+    body.querySelector('#mCopy').addEventListener('click', ()=>copyText(msg.value));
+    body.querySelector('#mShare').addEventListener('click', async ()=>{
+      if(navigator.share){
+        try{ await navigator.share({title:'Mi app de entrenamiento', text: msg.value}); }
+        catch(e){}
+      } else { copyText(msg.value); toast('Mensaje copiado.'); }
+    });
+  });
+}
+
+/* ==================== COACH: EXERCISES ==================== */
+let exerciseFilterQuery = '';
+let exerciseFilterTags = [];
+function renderExercises(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Ejercicios</h2><div class="sub">Tu biblioteca reutilizable</div></div>
+      <button class="btn btn-primary" id="addExBtn">+ Añadir ejercicio</button>
+    </div>
+    <div class="field"><input type="text" id="exSearchInput" placeholder="Buscar por nombre o categoría…" value="${esc(exerciseFilterQuery)}"></div>
+    <div class="tag-grid" id="exTagFilter" style="margin-bottom:16px;">
+      ${TAG_OPTIONS.map(t=>`<button type="button" class="tag-chip ${exerciseFilterTags.includes(t)?'selected':''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}
+    </div>
+    <div id="exList"></div>
+  `;
+  document.getElementById('addExBtn').addEventListener('click', ()=>exerciseForm());
+  const searchInput = document.getElementById('exSearchInput');
+  searchInput.addEventListener('input', ()=>{ exerciseFilterQuery = searchInput.value; renderExerciseList(); });
+  document.querySelectorAll('#exTagFilter [data-tag]').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const t = chip.getAttribute('data-tag');
+      exerciseFilterTags = exerciseFilterTags.includes(t) ? exerciseFilterTags.filter(x=>x!==t) : [...exerciseFilterTags, t];
+      renderExercises(main);
+    });
+  });
+  renderExerciseList();
+}
+function renderExerciseList(){
+  const list = document.getElementById('exList');
+  if(!state.exercises.length){
+    list.innerHTML = `<div class="empty"><h3>Biblioteca vacía</h3><p>Añade ejercicios para reutilizarlos al crear sesiones.</p></div>`;
+    return;
+  }
+  const q = exerciseFilterQuery.trim().toLowerCase();
+  const filtered = state.exercises.filter(e=>{
+    const matchesQ = !q || e.name.toLowerCase().includes(q) || (e.categories||[]).some(c=>c.toLowerCase().includes(q));
+    const matchesTags = !exerciseFilterTags.length || (e.categories||[]).some(c=>exerciseFilterTags.includes(c));
+    return matchesQ && matchesTags;
+  });
+  if(!filtered.length){ list.innerHTML = emptyBlock('Ningún ejercicio coincide con ese filtro.'); return; }
+  list.innerHTML = filtered.map(e=>{
+    const thumb = thumbUrl(e);
+    const img = thumb ? `<img class="ex-thumb" src="${thumb}" alt="">` : `<div class="ex-thumb-placeholder">▶</div>`;
+    return `
+    <div class="list-row">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        ${img}
+        <div>
+          <strong>${esc(e.name)}</strong>
+          ${(e.categories||[]).length? `<div style="margin-top:4px;">${(e.categories||[]).map(c=>`<span class="badge badge-type" style="margin-right:4px;">${esc(c)}</span>`).join('')}</div>` : ''}
+          ${e.videoUrl? `<a class="video-link" href="${esc(normalizeUrl(e.videoUrl))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:4px;">▶ ver vídeo</a>` : ''}
+          ${e.notes? `<div class="meta" style="margin-top:4px;">${esc(e.notes)}</div>` : ''}
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" data-edit="${e.id}">Editar</button>
+        <button class="btn btn-sm btn-danger" data-del="${e.id}">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>exerciseForm(b.getAttribute('data-edit'))));
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+    state.exercises = state.exercises.filter(e=>e.id!==b.getAttribute('data-del'));
+    persist('exercises'); render();
+  }));
+}
+function exerciseForm(id){
+  const src = id ? state.exercises.find(x=>x.id===id) : {id:uid('ex'), name:'', categories:[], videoUrl:'', notes:''};
+  const e = JSON.parse(JSON.stringify(src));
+  if(!Array.isArray(e.categories)) e.categories = e.category ? [e.category] : [];
+  openModal(id?'Editar ejercicio':'Nuevo ejercicio', `
+    <div class="field"><label>Nombre</label><input type="text" id="f_name" value="${esc(e.name)}"></div>
+    <div class="field"><label>Categorías</label>
+      <div class="tag-grid" id="catGrid"></div>
+      <div class="row" style="margin-top:8px;"><input type="text" id="customTag" placeholder="Añadir otra categoría y pulsa Enter"></div>
+    </div>
+    <div class="field"><label>Vídeo demostrativo (YouTube u otra plataforma, opcional)</label><input type="text" id="f_video" value="${esc(e.videoUrl)}" placeholder="https://youtube.com/watch?v=..."></div>
+    <div class="field"><label>Notas / indicaciones técnicas</label><textarea id="f_notes">${esc(e.notes)}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar</button>
+    </div>
+  `, (body)=>{
+    function renderCatGrid(){
+      const grid = body.querySelector('#catGrid');
+      const allTags = Array.from(new Set([...TAG_OPTIONS, ...e.categories]));
+      grid.innerHTML = allTags.map(t=>`<button type="button" class="tag-chip ${e.categories.includes(t)?'selected':''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('');
+      grid.querySelectorAll('[data-tag]').forEach(chip=>{
+        chip.addEventListener('click', ()=>{
+          const t = chip.getAttribute('data-tag');
+          e.categories = e.categories.includes(t) ? e.categories.filter(x=>x!==t) : [...e.categories, t];
+          renderCatGrid();
+        });
+      });
+    }
+    renderCatGrid();
+    body.querySelector('#customTag').addEventListener('keydown', (ev)=>{
+      if(ev.key==='Enter'){
+        ev.preventDefault();
+        const val = ev.target.value.trim();
+        if(val && !e.categories.includes(val)){ e.categories.push(val); renderCatGrid(); }
+        ev.target.value='';
+      }
+    });
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+      const name = body.querySelector('#f_name').value.trim();
+      if(!name){ toast('Ponle un nombre al ejercicio.'); return; }
+      e.name=name; e.videoUrl=body.querySelector('#f_video').value.trim(); e.notes=body.querySelector('#f_notes').value.trim();
+      const idx = state.exercises.findIndex(x=>x.id===e.id);
+      if(idx>=0) state.exercises[idx]=e; else state.exercises.push(e);
+      persist('exercises'); closeModal(); render();
+    });
+  });
+}
+
+/* ==================== COACH: SESSION TEMPLATES ==================== */
+function renderSessionTemplates(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Sesiones</h2><div class="sub">Plantillas de entrenamiento listas para asignar</div></div>
+      <button class="btn btn-primary" id="addSessBtn">+ Nueva sesión</button>
+    </div>
+    <div id="sessList"></div>
+  `;
+  document.getElementById('addSessBtn').addEventListener('click', ()=>sessionForm());
+  const list = document.getElementById('sessList');
+  if(!state.sessionTemplates.length){
+    list.innerHTML = `<div class="empty"><h3>Sin sesiones todavía</h3><p>Crea tu primera plantilla de sesión para poder programarla en el calendario.</p></div>`;
+    return;
+  }
+  list.innerHTML = state.sessionTemplates.map(s=>{
+    const exCount = (s.blocks||[]).reduce((n,b)=>n+((b.exercises||[]).length),0);
+    return `
+    <div class="list-row">
+      <div>
+        <strong>${esc(s.name)}</strong>${s.focus? ' <span class="badge badge-type">'+esc(s.focus)+'</span>':''}
+        <div class="meta">${(s.blocks||[]).length} bloque(s) · ${exCount} ejercicio(s)</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" data-edit="${s.id}">Editar</button>
+        <button class="btn btn-sm btn-danger" data-del="${s.id}">Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>sessionForm(b.getAttribute('data-edit'))));
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+    state.sessionTemplates = state.sessionTemplates.filter(s=>s.id!==b.getAttribute('data-del'));
+    persist('sessionTemplates'); render();
+  }));
+}
+function sessionForm(id){
+  const s = id ? JSON.parse(JSON.stringify(state.sessionTemplates.find(x=>x.id===id))) : {id:uid('sess'), name:'', focus:'', notes:'', blocks:[]};
+  s.blocks = migrateBlocks(s.blocks);
+  const bodyHtml = `
+    <div class="field"><label>Nombre de la sesión</label><input type="text" id="f_name" value="${esc(s.name)}"></div>
+    <div class="row">
+      <div class="field"><label>Enfoque (opcional)</label><input type="text" id="f_focus" value="${esc(s.focus)}" placeholder="p. ej. Fuerza tren superior"></div>
+    </div>
+    <label>Bloques de la sesión</label>
+    <div id="blocksContainer"></div>
+    <button class="btn btn-sm" id="addBlockBtn" type="button">+ Añadir bloque</button>
+    <div class="field" style="margin-top:14px;"><label>Notas generales de la sesión</label><textarea id="f_notes">${esc(s.notes)}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar sesión</button>
+    </div>
+  `;
+  openModal(id?'Editar sesión':'Nueva sesión', bodyHtml, (body)=>{
+    function renderBlocksUI(){
+      const c = body.querySelector('#blocksContainer');
+      c.innerHTML = s.blocks.map(blk=>`
+        <div class="block-editor" data-blockid="${blk.id}">
+          <div class="block-editor-head">
+            <input type="text" class="block-name-input" placeholder="Nombre del bloque (p. ej. Calentamiento, Bloque A...)" value="${esc(blk.name)}">
+            <button class="btn btn-ghost btn-sm" type="button" data-rmblock="${blk.id}">Eliminar bloque</button>
+          </div>
+          <div class="ex-row" style="font-size:11px;color:var(--chalk-dim);margin-bottom:4px;">
+            <span>Ejercicio</span><span>Series</span><span>Reps</span><span>Carga</span><span>Descanso</span><span>Vídeo</span><span>Notas</span><span></span>
+          </div>
+          <div class="ex-rows" data-exrows="${blk.id}"></div>
+          <button class="btn btn-sm" type="button" data-addex="${blk.id}">+ Añadir ejercicio</button>
+        </div>
+      `).join('') || '<p class="meta" style="margin-bottom:10px;">Todavía no has añadido ningún bloque.</p>';
+      s.blocks.forEach(blk=>{
+        const rowsWrap = c.querySelector(`[data-exrows="${blk.id}"]`);
+        renderExRows(rowsWrap, blk);
+        c.querySelector(`[data-blockid="${blk.id}"] .block-name-input`).addEventListener('input', (ev)=>{ blk.name = ev.target.value; });
+      });
+      c.querySelectorAll('[data-rmblock]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          s.blocks = s.blocks.filter(b=>b.id!==btn.getAttribute('data-rmblock'));
+          renderBlocksUI();
+        });
+      });
+      c.querySelectorAll('[data-addex]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const blk = s.blocks.find(b=>b.id===btn.getAttribute('data-addex'));
+          blk.exercises.push({id:uid('exx'), exerciseName:'', sets:'', reps:'', load:'', rest:'', videoUrl:'', notes:''});
+          renderBlocksUI();
+        });
+      });
+    }
+    function renderExRows(wrap, blk){
+      wrap.innerHTML = blk.exercises.map(ex=>`
+        <div class="ex-row" data-exid="${ex.id}">
+          <div class="ex-search-wrap">
+            <input type="text" class="ex-search-input" value="${esc(ex.exerciseName)}" placeholder="Buscar ejercicio…" autocomplete="off">
+            <div class="ex-dropdown" hidden></div>
+          </div>
+          <input type="text" placeholder="series" value="${esc(ex.sets)}" data-f="sets">
+          <input type="text" placeholder="reps" value="${esc(ex.reps)}" data-f="reps">
+          <input type="text" placeholder="carga" value="${esc(ex.load)}" data-f="load">
+          <input type="text" placeholder="descanso" value="${esc(ex.rest)}" data-f="rest">
+          <input type="text" placeholder="enlace vídeo" value="${esc(ex.videoUrl)}" data-f="videoUrl">
+          <input type="text" placeholder="notas" value="${esc(ex.notes)}" data-f="notes">
+          <button class="btn btn-ghost btn-sm" type="button" data-rmex="${ex.id}">✕</button>
+        </div>`).join('') || '<p class="meta" style="font-size:12px;margin-bottom:8px;">Sin ejercicios en este bloque todavía.</p>';
+      blk.exercises.forEach(ex=>{
+        const row = wrap.querySelector(`[data-exid="${ex.id}"]`);
+        if(!row) return;
+        row.querySelectorAll('[data-f]').forEach(inp=>{
+          inp.addEventListener('input', ()=>{ ex[inp.getAttribute('data-f')] = inp.value; });
+        });
+        row.querySelector('[data-rmex]').addEventListener('click', ()=>{
+          blk.exercises = blk.exercises.filter(x=>x.id!==ex.id);
+          renderExRows(wrap, blk);
+        });
+        wireExerciseSearch(row, ex);
+      });
+    }
+    function wireExerciseSearch(row, ex){
+      const input = row.querySelector('.ex-search-input');
+      const dd = row.querySelector('.ex-dropdown');
+      function showResults(q){
+        const query = q.trim().toLowerCase();
+        const matches = !query
+          ? state.exercises.slice(0,8)
+          : state.exercises.filter(libEx =>
+              libEx.name.toLowerCase().includes(query) ||
+              (libEx.categories||[]).some(c=>c.toLowerCase().includes(query))
+            ).slice(0,8);
+        if(!matches.length){
+          dd.innerHTML = '<div class="ex-dropdown-item" style="cursor:default;">Sin coincidencias en tu biblioteca</div>';
+          dd.hidden = false; return;
+        }
+        dd.innerHTML = matches.map(libEx=>{
+          const thumb = thumbUrl(libEx);
+          const img = thumb ? `<img class="ex-thumb" src="${thumb}" alt="">` : `<div class="ex-thumb-placeholder">▶</div>`;
+          const tags = (libEx.categories||[]).slice(0,3).join(' · ');
+          return `<div class="ex-dropdown-item" data-pick="${libEx.id}">
+            ${img}
+            <div><div class="ex-dd-name">${esc(libEx.name)}</div>${tags?`<div class="ex-dd-tags">${esc(tags)}</div>`:''}</div>
+          </div>`;
+        }).join('');
+        dd.hidden = false;
+        dd.querySelectorAll('[data-pick]').forEach(item=>{
+          item.addEventListener('mousedown', (ev)=>{
+            ev.preventDefault();
+            const libEx = state.exercises.find(x=>x.id===item.getAttribute('data-pick'));
+            ex.exerciseName = libEx.name;
+            input.value = libEx.name;
+            if(libEx.videoUrl && !ex.videoUrl){
+              ex.videoUrl = libEx.videoUrl;
+              const videoInput = row.querySelector('[data-f="videoUrl"]');
+              if(videoInput) videoInput.value = libEx.videoUrl;
+            }
+            dd.hidden = true;
+          });
+        });
+      }
+      input.addEventListener('input', ()=>{ ex.exerciseName = input.value; showResults(input.value); });
+      input.addEventListener('focus', ()=>{ showResults(input.value); });
+      input.addEventListener('blur', ()=>{ setTimeout(()=>{ dd.hidden = true; }, 150); });
+    }
+    renderBlocksUI();
+    body.querySelector('#addBlockBtn').addEventListener('click', ()=>{
+      s.blocks.push({id:uid('blk'), name:'', exercises:[]});
+      renderBlocksUI();
+    });
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+      const name = body.querySelector('#f_name').value.trim();
+      if(!name){ toast('Ponle un nombre a la sesión.'); return; }
+      s.name=name; s.focus=body.querySelector('#f_focus').value.trim(); s.notes=body.querySelector('#f_notes').value.trim();
+      const idx = state.sessionTemplates.findIndex(x=>x.id===s.id);
+      if(idx>=0) state.sessionTemplates[idx]=s; else state.sessionTemplates.push(s);
+      persist('sessionTemplates'); closeModal(); render();
+    });
+  });
+}
+
+/* ==================== COACH: QUESTIONNAIRE TEMPLATES ==================== */
+function renderQTemplates(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Cuestionarios</h2><div class="sub">Wellness, RPE u otros que tus deportistas puedan responder</div></div>
+      <button class="btn btn-primary" id="addQBtn">+ Nuevo cuestionario</button>
+    </div>
+    <div id="qList"></div>
+  `;
+  document.getElementById('addQBtn').addEventListener('click', ()=>qForm());
+  const list = document.getElementById('qList');
+  if(!state.qTemplates.length){
+    list.innerHTML = `<div class="empty"><h3>Sin cuestionarios</h3><p>Crea uno de wellness o RPE para poder programarlo a tus deportistas.</p></div>`;
+    return;
+  }
+  list.innerHTML = state.qTemplates.map(q=>`
+    <div class="list-row">
+      <div>
+        <strong>${esc(q.name)}</strong> <span class="badge badge-type">${esc(q.type)}</span>
+        <div class="meta">${q.questions.length} pregunta(s)</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" data-edit="${q.id}">Editar</button>
+        <button class="btn btn-sm btn-danger" data-del="${q.id}">Eliminar</button>
+      </div>
+    </div>`).join('');
+  list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>qForm(b.getAttribute('data-edit'))));
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+    state.qTemplates = state.qTemplates.filter(q=>q.id!==b.getAttribute('data-del'));
+    persist('qTemplates'); render();
+  }));
+}
+function qForm(id){
+  const q = id ? JSON.parse(JSON.stringify(state.qTemplates.find(x=>x.id===id))) : {id:uid('q'), name:'', type:'personalizado', questions:[]};
+  const bodyHtml = `
+    <div class="field"><label>Nombre del cuestionario</label><input type="text" id="f_name" value="${esc(q.name)}"></div>
+    <div class="field"><label>Tipo</label>
+      <select id="f_type">
+        ${['wellness','rpe','personalizado'].map(t=>`<option value="${t}" ${q.type===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <label>Preguntas</label>
+    <div id="qList2"></div>
+    <button class="btn btn-sm" id="addQItemBtn" type="button">+ Añadir pregunta</button>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Guardar cuestionario</button>
+    </div>
+  `;
+  openModal(id?'Editar cuestionario':'Nuevo cuestionario', bodyHtml, (body)=>{
+    function renderQItems(){
+      const c = body.querySelector('#qList2');
+      c.innerHTML = q.questions.map(item=>`
+        <fieldset data-q="${item.id}">
+          <div class="field"><label>Pregunta</label><input type="text" value="${esc(item.text)}" data-f="text"></div>
+          <div class="row">
+            <div class="field"><label>Tipo de respuesta</label>
+              <select data-f="type">
+                <option value="escala" ${item.type==='escala'?'selected':''}>Escala numérica</option>
+                <option value="numero" ${item.type==='numero'?'selected':''}>Número libre</option>
+                <option value="texto" ${item.type==='texto'?'selected':''}>Texto</option>
+              </select>
+            </div>
+            <div class="field min-max" style="${item.type==='escala'?'':'display:none;'}"><label>Mín / Máx</label>
+              <div class="row"><input type="number" value="${item.min??1}" data-f="min"><input type="number" value="${item.max??5}" data-f="max"></div>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" type="button" data-rmq="${item.id}">Eliminar pregunta</button>
+        </fieldset>`).join('');
+      c.querySelectorAll('[data-q]').forEach(fs=>{
+        const qid = fs.getAttribute('data-q');
+        const item = q.questions.find(x=>x.id===qid);
+        fs.querySelectorAll('[data-f]').forEach(inp=>{
+          inp.addEventListener('input', ()=>{
+            const f = inp.getAttribute('data-f');
+            item[f] = inp.type==='number' ? Number(inp.value) : inp.value;
+            if(f==='type'){ fs.querySelector('.min-max').style.display = inp.value==='escala' ? '' : 'none'; }
+          });
+        });
+      });
+      c.querySelectorAll('[data-rmq]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          q.questions = q.questions.filter(x=>x.id!==btn.getAttribute('data-rmq'));
+          renderQItems();
+        });
+      });
+    }
+    renderQItems();
+    body.querySelector('#addQItemBtn').addEventListener('click', ()=>{
+      q.questions.push({id:uid('qq'), text:'', type:'escala', min:1, max:5});
+      renderQItems();
+    });
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+      const name = body.querySelector('#f_name').value.trim();
+      if(!name){ toast('Ponle un nombre al cuestionario.'); return; }
+      q.name=name; q.type=body.querySelector('#f_type').value;
+      const idx = state.qTemplates.findIndex(x=>x.id===q.id);
+      if(idx>=0) state.qTemplates[idx]=q; else state.qTemplates.push(q);
+      persist('qTemplates'); closeModal(); render();
+    });
+  });
+}
+
+/* ==================== COACH: CALENDAR ==================== */
+function renderCalendar(main){
+  const monday = addDays(startOfWeek(todayISO()), weekOffset*7);
+  const days = [0,1,2,3,4,5,6].map(i=>addDays(monday,i));
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Calendario</h2><div class="sub">Programa sesiones y cuestionarios para tu comunidad</div></div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="filterAthlete">
+          <option value="all">Todos los deportistas</option>
+          ${state.athletes.map(a=>`<option value="${a.id}" ${calendarAthleteFilter===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary" id="assignBtn">+ Asignar</button>
+      </div>
+    </div>
+    <div class="week-nav">
+      <button class="btn btn-sm" id="prevWeek">← Semana anterior</button>
+      <span class="meta">${fmtDate(monday)} – ${fmtDate(addDays(monday,6))}</span>
+      <button class="btn btn-sm" id="nextWeek">Semana siguiente →</button>
+    </div>
+    <div class="week-grid" id="weekGrid"></div>
+  `;
+  document.getElementById('filterAthlete').value = calendarAthleteFilter;
+  document.getElementById('filterAthlete').addEventListener('change', (e)=>{ calendarAthleteFilter=e.target.value; render(); });
+  document.getElementById('prevWeek').addEventListener('click', ()=>{ weekOffset--; render(); });
+  document.getElementById('nextWeek').addEventListener('click', ()=>{ weekOffset++; render(); });
+  document.getElementById('assignBtn').addEventListener('click', ()=>assignForm());
+
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = days.map(d=>{
+    let items = [
+      ...state.assignments.filter(a=>a.date===d && (calendarAthleteFilter==='all'||a.athleteId===calendarAthleteFilter)).map(a=>({...a,_kind:'sesión'})),
+      ...state.qAssignments.filter(a=>a.date===d && (calendarAthleteFilter==='all'||a.athleteId===calendarAthleteFilter)).map(a=>({...a,_kind:'cuestionario'}))
+    ];
+    return `<div class="day-col">
+      <div class="day-head ${d===todayISO()?'today':''}">${fmtDate(d)}</div>
+      ${items.map(it=>`<div class="day-item" data-kind="${it._kind}" data-id="${it.id}">
+        <span class="t">${esc(it.templateName)}</span>
+        ${esc(athleteName(it.athleteId))} · ${it.status==='completada'?'✓':'pendiente'}
+      </div>`).join('') || '<div class="meta" style="font-size:11px;">—</div>'}
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const kind = el.getAttribute('data-kind'); const id = el.getAttribute('data-id');
+      if(kind==='sesión') viewSessionAssignment(id, true); else viewQAssignment(id, true);
+    });
+  });
+}
+function assignForm(){
+  if(!state.athletes.length){ toast('Primero añade al menos un deportista.'); return; }
+  const bodyHtml = `
+    <div class="field"><label>Fecha</label><input type="date" id="f_date" value="${todayISO()}"></div>
+    <fieldset>
+      <legend>Deportistas</legend>
+      <div class="check-list">
+        ${state.athletes.map(a=>`<label class="check-row"><input type="checkbox" value="${a.id}" class="ath-check"> ${esc(a.name)}</label>`).join('')}
+      </div>
+    </fieldset>
+    <div class="field"><label>Sesión (opcional)</label>
+      <select id="f_sess"><option value="">— ninguna —</option>
+        ${state.sessionTemplates.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Cuestionario (opcional)</label>
+      <select id="f_q"><option value="">— ninguno —</option>
+        ${state.qTemplates.map(q=>`<option value="${q.id}">${esc(q.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn">Cancelar</button>
+      <button class="btn btn-primary" id="saveBtn">Asignar</button>
+    </div>
+  `;
+  openModal('Asignar trabajo', bodyHtml, (body)=>{
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+      const date = body.querySelector('#f_date').value;
+      const athIds = Array.from(body.querySelectorAll('.ath-check:checked')).map(c=>c.value);
+      const sessId = body.querySelector('#f_sess').value;
+      const qId = body.querySelector('#f_q').value;
+      if(!date){ toast('Elige una fecha.'); return; }
+      if(!athIds.length){ toast('Elige al menos un deportista.'); return; }
+      if(!sessId && !qId){ toast('Elige una sesión o un cuestionario.'); return; }
+      athIds.forEach(athleteId=>{
+        if(sessId){
+          const tpl = state.sessionTemplates.find(s=>s.id===sessId);
+          state.assignments.push({
+            id:uid('asg'), athleteId, date, templateId:tpl.id, templateName:tpl.name, focus:tpl.focus,
+            blocks: tpl.blocks.map(blk=>({
+              id: blk.id, name: blk.name,
+              exercises: (blk.exercises||[]).map(ex=>({...ex, done:false}))
+            })),
+            status:'pendiente', athleteNotes:'', rpe:null, completedAt:null
+          });
+        }
+        if(qId){
+          const tpl = state.qTemplates.find(q=>q.id===qId);
+          state.qAssignments.push({
+            id:uid('qasg'), athleteId, date, templateId:tpl.id, templateName:tpl.name, type:tpl.type,
+            questions: JSON.parse(JSON.stringify(tpl.questions)), responses:{}, status:'pendiente', completedAt:null
+          });
+        }
+      });
+      if(sessId) persist('assignments');
+      if(qId) persist('qAssignments');
+      toast('Asignado correctamente.');
+      closeModal(); render();
+    });
+  });
+}
+
+/* ==================== COACH: TRACKING ==================== */
+let trackingTab = 'sessions';
+function renderTracking(main){
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Seguimiento</h2><div class="sub">Qué ha completado tu comunidad</div></div>
+    </div>
+    <div class="role-switch" style="margin-bottom:16px;width:fit-content;">
+      <button data-t="sessions" class="${trackingTab==='sessions'?'active':''}">Sesiones</button>
+      <button data-t="quest" class="${trackingTab==='quest'?'active':''}">Cuestionarios</button>
+    </div>
+    <div id="trackBody"></div>
+  `;
+  main.querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click', ()=>{ trackingTab=b.getAttribute('data-t'); render(); }));
+  const body = document.getElementById('trackBody');
+  if(trackingTab==='sessions'){
+    const rows = [...state.assignments].sort((a,b)=>b.date.localeCompare(a.date));
+    if(!rows.length){ body.innerHTML = emptyBlock('Sin sesiones asignadas todavía.'); return; }
+    body.innerHTML = `<table><thead><tr><th>Fecha</th><th>Deportista</th><th>Sesión</th><th>Estado</th><th>RPE</th><th>Notas</th></tr></thead><tbody>
+      ${rows.map(a=>`<tr>
+        <td>${fmtDate(a.date)}</td><td>${esc(athleteName(a.athleteId))}</td><td>${esc(a.templateName)}</td>
+        <td>${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}</td>
+        <td class="num">${a.rpe ?? '—'}</td><td>${esc(a.athleteNotes||'—')}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
+  } else {
+    const rows = [...state.qAssignments].sort((a,b)=>b.date.localeCompare(a.date));
+    if(!rows.length){ body.innerHTML = emptyBlock('Sin cuestionarios asignados todavía.'); return; }
+    body.innerHTML = `<table><thead><tr><th>Fecha</th><th>Deportista</th><th>Cuestionario</th><th>Estado</th><th>Resumen</th></tr></thead><tbody>
+      ${rows.map(a=>{
+        const summary = a.status==='completada' ? a.questions.map(q=> q.type==='texto' ? '' : `${esc(q.text)}: ${esc(a.responses[q.id]??'—')}`).filter(Boolean).join(' · ') : '—';
+        return `<tr>
+        <td>${fmtDate(a.date)}</td><td>${esc(athleteName(a.athleteId))}</td><td>${esc(a.templateName)}</td>
+        <td>${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}</td>
+        <td>${summary}</td>
+      </tr>`}).join('')}
+    </tbody></table>`;
+  }
+}
+function emptyBlock(msg){ return `<div class="empty"><p>${msg}</p></div>`; }
+
+/* ==================== ATHLETE: PICKER ==================== */
+function renderAthletePicker(main){
+  main.innerHTML = `<div class="empty">
+    <h3>¿Quién eres?</h3>
+    <p>Elige tu perfil arriba a la derecha para ver tu semana de entrenamiento.</p>
+  </div>`;
+  if(!state.athletes.length){
+    main.innerHTML = `<div class="empty"><h3>Todavía no hay deportistas creados</h3><p>Pide a tu entrenador que te añada desde la vista Entrenador.</p></div>`;
+  }
+}
+
+/* ==================== ATHLETE: WEEK ==================== */
+function renderAthleteWeek(main){
+  const monday = addDays(startOfWeek(todayISO()), weekOffset*7);
+  const days = [0,1,2,3,4,5,6].map(i=>addDays(monday,i));
+  main.innerHTML = `
+    <div class="section-head">
+      <div><h2>Mi semana</h2><div class="sub">${esc(athleteName(view.athleteId))}</div></div>
+    </div>
+    <div class="week-nav">
+      <button class="btn btn-sm" id="prevWeek">← Semana anterior</button>
+      <span class="meta">${fmtDate(monday)} – ${fmtDate(addDays(monday,6))}</span>
+      <button class="btn btn-sm" id="nextWeek">Semana siguiente →</button>
+    </div>
+    <div class="week-grid" id="weekGrid"></div>
+    <div id="detailArea" style="margin-top:22px;"></div>
+  `;
+  document.getElementById('prevWeek').addEventListener('click', ()=>{ weekOffset--; render(); });
+  document.getElementById('nextWeek').addEventListener('click', ()=>{ weekOffset++; render(); });
+  const grid = document.getElementById('weekGrid');
+  grid.innerHTML = days.map(d=>{
+    let items = [
+      ...state.assignments.filter(a=>a.date===d && a.athleteId===view.athleteId).map(a=>({...a,_kind:'sesión'})),
+      ...state.qAssignments.filter(a=>a.date===d && a.athleteId===view.athleteId).map(a=>({...a,_kind:'cuestionario'}))
+    ];
+    return `<div class="day-col">
+      <div class="day-head ${d===todayISO()?'today':''}">${fmtDate(d)}</div>
+      ${items.map(it=>`<div class="day-item" data-kind="${it._kind}" data-id="${it.id}">
+        <span class="t">${esc(it.templateName)}</span>${it.status==='completada'?'✓ completada':'pendiente'}
+      </div>`).join('') || '<div class="meta" style="font-size:11px;">Descanso</div>'}
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('[data-id]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const kind = el.getAttribute('data-kind'); const id = el.getAttribute('data-id');
+      if(kind==='sesión') viewSessionAssignment(id,false); else viewQAssignment(id,false);
+    });
+  });
+}
+
+function viewSessionAssignment(id, readOnlyCoachView){
+  const a = state.assignments.find(x=>x.id===id);
+  a.blocks = migrateBlocks(a.blocks);
+  const area = document.getElementById('detailArea') || document.getElementById('main');
+  const readonly = readOnlyCoachView;
+  const blocksHtml = a.blocks.map(blk=>`
+    <div style="margin-top:16px;">
+      ${blk.name? `<h4 style="font-size:13px;color:var(--chalk-dim);margin-bottom:6px;">${esc(blk.name)}</h4>` : ''}
+      <table><thead><tr><th></th><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Carga</th><th>Descanso</th><th>Vídeo</th><th>Notas</th></tr></thead>
+      <tbody>
+        ${(blk.exercises||[]).map(ex=>`<tr>
+          <td>${readonly?'':`<input type="checkbox" ${ex.done?'checked':''} data-blkid="${blk.id}" data-exid="${ex.id}">`}</td>
+          <td>${esc(ex.exerciseName)}</td><td class="num">${esc(ex.sets)}</td><td class="num">${esc(ex.reps)}</td>
+          <td>${esc(ex.load)}</td><td>${esc(ex.rest)}</td>
+          <td>${ex.videoUrl? `<button type="button" class="video-link" data-playvideo="${esc(normalizeUrl(ex.videoUrl))}" data-title="${esc(ex.exerciseName)}">▶ ver vídeo</button>` : '—'}</td>
+          <td>${esc(ex.notes)}</td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>
+  `).join('');
+  const html = `
+    <div class="card">
+      <div class="card-tab ${a.status==='completada'?'tab-sage':'tab-yellow'}"></div>
+      <div class="section-head" style="margin-bottom:14px;">
+        <div><h3>${esc(a.templateName)}</h3><div class="sub">${fmtDate(a.date)} · ${esc(athleteName(a.athleteId))}${a.focus? ' · '+esc(a.focus):''}</div></div>
+        ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+      </div>
+      ${blocksHtml}
+      <div id="videoPlayerArea"></div>
+      ${!readonly ? `
+        <div class="field" style="margin-top:16px;"><label>RPE de la sesión (1-10, opcional)</label>
+          <input type="number" min="1" max="10" id="f_rpe" value="${a.rpe??''}"></div>
+        <div class="field"><label>Comentarios / sensaciones</label><textarea id="f_notes">${esc(a.athleteNotes)}</textarea></div>
+        <button class="btn btn-primary" id="completeBtn">${a.status==='completada'?'Actualizar':'Marcar como completada'}</button>
+      ` : (a.athleteNotes ? `<div class="field" style="margin-top:14px;"><label>Comentario del deportista</label><p>${esc(a.athleteNotes)}</p></div>` : '')}
+    </div>
+  `;
+  area.innerHTML = html;
+  area.scrollIntoView({behavior:'smooth', block:'nearest'});
+  area.querySelectorAll('[data-blkid][data-exid]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const blk = a.blocks.find(b=>b.id===cb.getAttribute('data-blkid'));
+      const ex = blk.exercises.find(x=>x.id===cb.getAttribute('data-exid'));
+      ex.done = cb.checked; persist('assignments');
+    });
+  });
+  area.querySelectorAll('[data-playvideo]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      showVideoPlayer(area, btn.getAttribute('data-playvideo'), btn.getAttribute('data-title'));
+    });
+  });
+  const completeBtn = area.querySelector('#completeBtn');
+  if(completeBtn){
+    completeBtn.addEventListener('click', ()=>{
+      a.rpe = area.querySelector('#f_rpe').value ? Number(area.querySelector('#f_rpe').value) : null;
+      a.athleteNotes = area.querySelector('#f_notes').value.trim();
+      a.status = 'completada'; a.completedAt = new Date().toISOString();
+      persist('assignments'); toast('Sesión guardada.'); render();
+    });
+  }
+}
+
+function viewQAssignment(id, readOnlyCoachView){
+  const a = state.qAssignments.find(x=>x.id===id);
+  const area = document.getElementById('detailArea') || document.getElementById('main');
+  const readonly = readOnlyCoachView;
+  const html = `
+    <div class="card">
+      <div class="card-tab ${a.status==='completada'?'tab-sage':'tab-ember'}"></div>
+      <div class="section-head" style="margin-bottom:14px;">
+        <div><h3>${esc(a.templateName)}</h3><div class="sub">${fmtDate(a.date)} · ${esc(athleteName(a.athleteId))}</div></div>
+        ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+      </div>
+      <div id="qItemsArea"></div>
+      ${!readonly ? `<button class="btn btn-primary" id="sendBtn" style="margin-top:10px;">Enviar respuestas</button>` : ''}
+    </div>
+  `;
+  area.innerHTML = html;
+  area.scrollIntoView({behavior:'smooth', block:'nearest'});
+  const itemsArea = area.querySelector('#qItemsArea');
+  itemsArea.innerHTML = a.questions.map(q=>{
+    const val = a.responses[q.id];
+    if(readonly || a.status==='completada'){
+      return `<div class="field"><label>${esc(q.text)}</label><p>${esc(val??'—')}</p></div>`;
+    }
+    if(q.type==='escala'){
+      const opts = [];
+      for(let i=q.min;i<=q.max;i++) opts.push(i);
+      return `<div class="field"><label>${esc(q.text)}</label>
+        <div class="scale-opts" data-scale="${q.id}">
+          ${opts.map(o=>`<button type="button" class="scale-opt ${Number(val)===o?'selected':''}" data-val="${o}">${o}</button>`).join('')}
+        </div></div>`;
+    }
+    if(q.type==='numero'){
+      return `<div class="field"><label>${esc(q.text)}</label><input type="number" data-resp="${q.id}" value="${val??''}"></div>`;
+    }
+    return `<div class="field"><label>${esc(q.text)}</label><textarea data-resp="${q.id}">${esc(val??'')}</textarea></div>`;
+  }).join('');
+  if(!readonly && a.status!=='completada'){
+    itemsArea.querySelectorAll('[data-scale]').forEach(wrap=>{
+      const qid = wrap.getAttribute('data-scale');
+      wrap.querySelectorAll('.scale-opt').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          a.responses[qid] = Number(btn.getAttribute('data-val'));
+          wrap.querySelectorAll('.scale-opt').forEach(x=>x.classList.remove('selected'));
+          btn.classList.add('selected');
+        });
+      });
+    });
+    itemsArea.querySelectorAll('[data-resp]').forEach(inp=>{
+      inp.addEventListener('input', ()=>{ a.responses[inp.getAttribute('data-resp')] = inp.value; });
+    });
+    area.querySelector('#sendBtn').addEventListener('click', ()=>{
+      const missing = a.questions.some(q=> q.type!=='texto' && (a.responses[q.id]===undefined || a.responses[q.id]===''));
+      if(missing){ toast('Responde todas las preguntas antes de enviar.'); return; }
+      a.status='completada'; a.completedAt=new Date().toISOString();
+      persist('qAssignments'); toast('Respuestas enviadas.'); render();
+    });
+  }
+}
+
+/* ==================== ATHLETE: HISTORY ==================== */
+function renderAthleteHistory(main){
+  const sessions = state.assignments.filter(a=>a.athleteId===view.athleteId && a.status==='completada').sort((a,b)=>b.date.localeCompare(a.date));
+  const quests = state.qAssignments.filter(a=>a.athleteId===view.athleteId && a.status==='completada').sort((a,b)=>b.date.localeCompare(a.date));
+  main.innerHTML = `
+    <div class="section-head"><div><h2>Historial</h2><div class="sub">${esc(athleteName(view.athleteId))}</div></div></div>
+    <h3 style="font-size:14px;margin:8px 0 10px;">Sesiones completadas</h3>
+    <div id="hSess"></div>
+    <h3 style="font-size:14px;margin:22px 0 10px;">Cuestionarios respondidos</h3>
+    <div id="hQuest"></div>
+  `;
+  const hSess = document.getElementById('hSess');
+  hSess.innerHTML = sessions.length ? sessions.map(a=>`
+    <div class="list-row"><div><strong>${esc(a.templateName)}</strong><div class="meta">${fmtDate(a.date)}${a.rpe? ' · RPE '+a.rpe:''}</div>
+    ${a.athleteNotes? `<div style="margin-top:4px;">${esc(a.athleteNotes)}</div>`:''}</div></div>`).join('') : emptyBlock('Todavía no has completado sesiones.');
+  const hQuest = document.getElementById('hQuest');
+  hQuest.innerHTML = quests.length ? quests.map(a=>`
+    <div class="list-row"><div><strong>${esc(a.templateName)}</strong><div class="meta">${fmtDate(a.date)}</div></div></div>`).join('') : emptyBlock('Todavía no has respondido cuestionarios.');
+}
+
+/* ==================== BOOT ==================== */
+(async function boot(){
+  document.getElementById('main').innerHTML = '<div class="meta">Cargando…</div>';
+  await loadAll();
+  render();
+})();
+</script>
+</body>
+</html>
