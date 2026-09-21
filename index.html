@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cuaderno de Programación</title>
+<title>Athlete Performance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#1B2420;
-    --bg-panel:#223129;
-    --bg-panel-2:#28382F;
-    --bg-input:#1F2B25;
-    --chalk:#EDEDE6;
-    --chalk-dim:#A9B3AC;
-    --chalk-faint:#7C8A81;
-    --line:rgba(237,237,230,0.14);
-    --line-strong:rgba(237,237,230,0.30);
-    --yellow:#F2B705;
-    --yellow-dim:rgba(242,183,5,0.16);
-    --ember:#E4572E;
-    --ember-dim:rgba(228,87,46,0.16);
-    --sage:#7FB069;
-    --sage-dim:rgba(127,176,105,0.18);
+    --bg:#0A0A0A;
+    --bg-panel:#161616;
+    --bg-panel-2:#1F1F1F;
+    --bg-input:#141414;
+    --chalk:#FFFFFF;
+    --chalk-dim:#B3B3B3;
+    --chalk-faint:#767676;
+    --line:rgba(255,255,255,0.14);
+    --line-strong:rgba(255,255,255,0.30);
+    --yellow:#E2001A;
+    --yellow-dim:rgba(226,0,26,0.16);
+    --ember:#FF4D4D;
+    --ember-dim:rgba(255,77,77,0.16);
+    --sage:#FFFFFF;
+    --sage-dim:rgba(255,255,255,0.14);
     --radius:3px;
     --font-display:'Space Grotesk',sans-serif;
     --font-body:'Inter',sans-serif;
@@ -42,7 +42,7 @@
   button{font-family:var(--font-body);cursor:pointer;}
   input,select,textarea{font-family:var(--font-body);}
   a{color:inherit;}
-  ::selection{background:var(--yellow);color:#1B2420;}
+  ::selection{background:var(--yellow);color:#FFFFFF;}
 
   /* ---------- layout ---------- */
   #app{display:flex;min-height:100vh;}
@@ -53,8 +53,8 @@
     padding:20px 0;
   }
   .brand{padding:0 20px 20px 20px;border-bottom:1px solid var(--line);margin-bottom:14px;}
-  .brand-mark{width:34px;height:34px;border:1.5px solid var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;color:var(--yellow);font-size:15px;margin-bottom:10px;}
-  .brand h1{font-size:16px;color:var(--chalk);}
+  .brand-mark{width:38px;height:38px;border:2px solid var(--yellow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;color:var(--chalk);background:var(--yellow);font-size:14px;margin-bottom:10px;letter-spacing:-0.03em;}
+  .brand h1{font-size:15px;line-height:1.25;letter-spacing:0.02em;color:var(--chalk);}
   .brand span{display:block;font-size:11.5px;color:var(--chalk-faint);margin-top:2px;}
   nav.side-nav{display:flex;flex-direction:column;gap:2px;padding:0 10px;}
   .nav-item{
@@ -79,7 +79,7 @@
   .role-switch button{
     background:none;border:none;color:var(--chalk-dim);padding:7px 16px;font-size:13px;font-weight:600;
   }
-  .role-switch button.active{background:var(--yellow);color:#1B2420;}
+  .role-switch button.active{background:var(--yellow);color:#FFFFFF;}
   .athlete-picker-inline select{min-width:180px;}
   #main{padding:26px 28px 60px 28px;flex:1;}
 
@@ -97,7 +97,7 @@
     padding:8px 14px;font-size:13px;font-weight:600;
   }
   .btn:hover{border-color:var(--chalk-faint);}
-  .btn-primary{background:var(--yellow);border-color:var(--yellow);color:#1B2420;}
+  .btn-primary{background:var(--yellow);border-color:var(--yellow);color:#FFFFFF;}
   .btn-primary:hover{filter:brightness(1.06);}
   .btn-ghost{background:none;border-color:transparent;color:var(--chalk-dim);padding:8px 10px;}
   .btn-ghost:hover{color:var(--chalk);}
@@ -215,7 +215,7 @@
   .toast{position:fixed;bottom:20px;right:20px;background:var(--bg-panel-2);border:1px solid var(--line-strong);padding:10px 16px;border-radius:var(--radius);font-size:13px;z-index:100;box-shadow:none;}
   .scale-opts{display:flex;gap:6px;flex-wrap:wrap;}
   .scale-opt{border:1px solid var(--line-strong);background:var(--bg-input);color:var(--chalk-dim);padding:7px 12px;border-radius:var(--radius);font-size:13px;font-variant-numeric:tabular-nums;}
-  .scale-opt.selected{background:var(--yellow);border-color:var(--yellow);color:#1B2420;font-weight:700;}
+  .scale-opt.selected{background:var(--yellow);border-color:var(--yellow);color:#FFFFFF;font-weight:700;}
   .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
 
   @media(max-width:760px){
@@ -231,8 +231,8 @@
 <div id="app">
   <aside id="sidebar">
     <div class="brand">
-      <div class="brand-mark">CP</div>
-      <h1>Cuaderno de Programación</h1>
+      <div class="brand-mark">AP</div>
+      <h1>ATHLETE<br>PERFORMANCE</h1>
       <span>planificación y seguimiento</span>
     </div>
     <nav class="side-nav" id="sideNav"></nav>
@@ -371,7 +371,7 @@ const coachNav = [
   {id:'exercises', label:'Ejercicios'},
   {id:'sessions', label:'Sesiones'},
   {id:'questionnaires', label:'Cuestionarios'},
-  {id:'calendar', label:'Calendario'},
+  {id:'calendar', label:'Planificación'},
   {id:'tracking', label:'Seguimiento'}
 ];
 const athleteNav = [
@@ -961,7 +961,7 @@ function renderSessionTemplates(main){
     persist('sessionTemplates'); render();
   }));
 }
-function sessionForm(id){
+function sessionForm(id, onSaved){
   const s = id ? JSON.parse(JSON.stringify(state.sessionTemplates.find(x=>x.id===id))) : {id:uid('sess'), name:'', focus:'', notes:'', blocks:[]};
   s.blocks = migrateBlocks(s.blocks);
   const bodyHtml = `
@@ -1097,7 +1097,9 @@ function sessionForm(id){
       s.name=name; s.focus=body.querySelector('#f_focus').value.trim(); s.notes=body.querySelector('#f_notes').value.trim();
       const idx = state.sessionTemplates.findIndex(x=>x.id===s.id);
       if(idx>=0) state.sessionTemplates[idx]=s; else state.sessionTemplates.push(s);
-      persist('sessionTemplates'); closeModal(); render();
+      persist('sessionTemplates');
+      closeModal();
+      if(onSaved) onSaved(s); else render();
     });
   });
 }
@@ -1212,7 +1214,7 @@ function renderCalendar(main){
   const days = [0,1,2,3,4,5,6].map(i=>addDays(monday,i));
   main.innerHTML = `
     <div class="section-head">
-      <div><h2>Calendario</h2><div class="sub">Programa sesiones y cuestionarios para tu comunidad</div></div>
+      <div><h2>Planificación</h2><div class="sub">Programa sesiones y cuestionarios para tu comunidad</div></div>
       <div style="display:flex;gap:8px;align-items:center;">
         <select id="filterAthlete">
           <option value="all">Todos los deportistas</option>
@@ -1255,20 +1257,24 @@ function renderCalendar(main){
     });
   });
 }
-function assignForm(){
+function assignForm(prefill){
   if(!state.athletes.length){ toast('Primero añade al menos un deportista.'); return; }
+  const pre = prefill || {};
   const bodyHtml = `
-    <div class="field"><label>Fecha</label><input type="date" id="f_date" value="${todayISO()}"></div>
+    <div class="field"><label>Fecha</label><input type="date" id="f_date" value="${pre.date||todayISO()}"></div>
     <fieldset>
       <legend>Deportistas</legend>
       <div class="check-list">
-        ${state.athletes.map(a=>`<label class="check-row"><input type="checkbox" value="${a.id}" class="ath-check"> ${esc(a.name)}</label>`).join('')}
+        ${state.athletes.map(a=>`<label class="check-row"><input type="checkbox" value="${a.id}" class="ath-check" ${(pre.athIds||[]).includes(a.id)?'checked':''}> ${esc(a.name)}</label>`).join('')}
       </div>
     </fieldset>
     <div class="field"><label>Sesión (opcional)</label>
-      <select id="f_sess"><option value="">— ninguna —</option>
-        ${state.sessionTemplates.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}
-      </select>
+      <div class="row">
+        <select id="f_sess"><option value="">— ninguna —</option>
+          ${state.sessionTemplates.map(s=>`<option value="${s.id}" ${pre.sessId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm" id="newSessBtn" type="button">+ Nueva sesión</button>
+      </div>
     </div>
     <div class="field"><label>Cuestionario (opcional)</label>
       <select id="f_q"><option value="">— ninguno —</option>
@@ -1281,6 +1287,12 @@ function assignForm(){
     </div>
   `;
   openModal('Asignar trabajo', bodyHtml, (body)=>{
+    body.querySelector('#newSessBtn').addEventListener('click', ()=>{
+      const date = body.querySelector('#f_date').value;
+      const athIds = Array.from(body.querySelectorAll('.ath-check:checked')).map(c=>c.value);
+      closeModal();
+      sessionForm(null, (newTpl)=>{ assignForm({date, athIds, sessId: newTpl.id}); });
+    });
     body.querySelector('#cancelBtn').addEventListener('click', closeModal);
     body.querySelector('#saveBtn').addEventListener('click', ()=>{
       const date = body.querySelector('#f_date').value;
