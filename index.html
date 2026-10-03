@@ -249,35 +249,32 @@
 const SUPABASE_URL = 'https://evmxurlyefwmihfyxgrj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_6gH5qHTYFqiWSrwDFm5Hyg_kDxVOkjA';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const APP_SHELL = document.getElementById('app').innerHTML;
+const APP_URL = location.origin + location.pathname;
 
 /* ==================== STORAGE HELPERS ==================== */
-// Datos "shared" (deportistas, ejercicios, sesiones...) viven en Supabase,
-// compartidos entre tú y todos tus deportistas.
-// Datos "personales" (qué rol/perfil estás viendo en este navegador) se
-// guardan en localStorage, solo para este dispositivo.
-async function loadKey(key, fallback, shared){
-  if(!shared){
-    try{
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    }catch(e){ return fallback; }
-  }
+// Todo el contenido de un entrenador (ejercicios, sesiones, cuestionarios,
+// asignaciones) vive en la tabla app_data, separado por coach_id.
+async function loadKey(key, fallback){
   try{
-    const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
+    const { data, error } = await sb.from('app_data').select('value').eq('coach_id', view.coachId).eq('key', key).maybeSingle();
     if(error){ console.error(error); return fallback; }
     return data ? data.value : fallback;
   }catch(e){ console.error(e); return fallback; }
 }
-async function saveKey(key, value, shared){
-  if(!shared){
-    try{ localStorage.setItem(key, JSON.stringify(value)); return true; }
-    catch(e){ toast('No se pudo guardar.'); return null; }
-  }
+async function saveKey(key, value){
   try{
-    const { error } = await sb.from('app_data').upsert({ key, value }, { onConflict: 'key' });
+    const { error } = await sb.from('app_data').upsert({ coach_id: view.coachId, key, value }, { onConflict: 'coach_id,key' });
     if(error){ toast('No se pudo guardar. Revisa tu conexión.'); console.error(error); return null; }
     return true;
   }catch(e){ toast('Error al guardar.'); console.error(e); return null; }
+}
+async function loadAthletes(){
+  try{
+    const { data, error } = await sb.from('profiles').select('*').eq('role','athlete').eq('coach_id', view.coachId).order('name');
+    if(error){ console.error(error); return []; }
+    return data || [];
+  }catch(e){ console.error(e); return []; }
 }
 
 /* ==================== STATE ==================== */
@@ -287,13 +284,14 @@ let state = {
   sessionTemplates: [],
   qTemplates: [],
   assignments: [],
-  qAssignments: [],
-  appLink: ''
+  qAssignments: []
 };
-let view = { role:'coach', athleteId:null, section:'panel' };
+let view = { role:null, coachId:null, athleteId:null, section:'panel', myName:'' };
 let weekOffset = 0; // for calendar/week views
 let calendarAthleteFilter = 'all';
 let loaded = false;
+let authMode = 'login'; // login | signup-coach | signup-athlete
+let inviteCoachId = null;
 
 function uid(p){ return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
@@ -309,23 +307,18 @@ function migrateBlocks(blocks){
 }
 
 async function loadAll(){
-  const [athletes, exercises, sessionTemplates, qTemplates, assignments, qAssignments, pref, appLink] = await Promise.all([
-    loadKey('athletes', [], true),
-    loadKey('exercises', [], true),
-    loadKey('session-templates', [], true),
-    loadKey('questionnaire-templates', defaultQuestionnaires(), true),
-    loadKey('assignments', [], true),
-    loadKey('questionnaire-assignments', [], true),
-    loadKey('view-preference', {role:'coach', athleteId:null}, false),
-    loadKey('app-link', '', false)
+  const [exercises, sessionTemplates, qTemplates, assignments, qAssignments, athletes] = await Promise.all([
+    loadKey('exercises', []),
+    loadKey('session-templates', []),
+    loadKey('questionnaire-templates', defaultQuestionnaires()),
+    loadKey('assignments', []),
+    loadKey('questionnaire-assignments', []),
+    loadAthletes()
   ]);
   const migratedExercises = exercises.map(e=>({...e, categories: Array.isArray(e.categories) ? e.categories : (e.category ? [e.category] : [])}));
   const migratedSessionTemplates = sessionTemplates.map(s=>({...s, blocks: migrateBlocks(s.blocks)}));
   const migratedAssignments = assignments.map(a=>({...a, blocks: migrateBlocks(a.blocks)}));
-  state = {athletes, exercises:migratedExercises, sessionTemplates:migratedSessionTemplates, qTemplates, assignments:migratedAssignments, qAssignments, appLink};
-  view.role = pref.role || 'coach';
-  view.athleteId = pref.athleteId || null;
-  view.section = view.role === 'coach' ? 'panel' : (view.athleteId ? 'week' : 'week');
+  state = {athletes, exercises:migratedExercises, sessionTemplates:migratedSessionTemplates, qTemplates, assignments:migratedAssignments, qAssignments};
   loaded = true;
 }
 
@@ -345,15 +338,12 @@ function defaultQuestionnaires(){
   ];
 }
 
-async function savePref(){
-  await saveKey('view-preference', {role:view.role, athleteId:view.athleteId}, false);
-}
-async function persist(key, shared=true){
+async function persist(key){
   const map = {
-    athletes:'athletes', exercises:'exercises', sessionTemplates:'session-templates',
+    exercises:'exercises', sessionTemplates:'session-templates',
     qTemplates:'questionnaire-templates', assignments:'assignments', qAssignments:'questionnaire-assignments'
   };
-  await saveKey(map[key], state[key], shared);
+  await saveKey(map[key], state[key]);
 }
 
 function toast(msg){
@@ -361,6 +351,106 @@ function toast(msg){
   el.className='toast'; el.textContent = msg;
   document.body.appendChild(el);
   setTimeout(()=>el.remove(), 2600);
+}
+
+/* ==================== AUTENTICACIÓN ==================== */
+function renderAuthScreen(){
+  document.getElementById('app').innerHTML = `
+    <div style="min-height:100vh;width:100%;display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div class="card" style="max-width:380px;width:100%;">
+        <div style="text-align:center;margin-bottom:18px;">
+          <div class="brand-mark" style="margin:0 auto 10px auto;">AP</div>
+          <h2 style="font-size:16px;letter-spacing:0.03em;">ATHLETE PERFORMANCE</h2>
+        </div>
+        <div id="authBody"></div>
+      </div>
+    </div>
+  `;
+  renderAuthBody();
+}
+function renderAuthBody(){
+  const el = document.getElementById('authBody');
+  if(authMode==='signup-coach'){
+    el.innerHTML = `
+      <h3 style="font-size:15px;margin-bottom:14px;">Crear cuenta de entrenador</h3>
+      <div class="field"><label>Tu nombre</label><input type="text" id="a_name"></div>
+      <div class="field"><label>Email</label><input type="email" id="a_email"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="a_pass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn btn-primary" id="signupBtn" style="width:100%;margin-bottom:10px;">Crear cuenta</button>
+      <p class="meta" style="text-align:center;">¿Ya tienes cuenta? <a href="#" id="toLogin" style="color:var(--yellow);">Iniciar sesión</a></p>
+    `;
+    document.getElementById('signupBtn').addEventListener('click', ()=>doSignup('coach', null));
+    document.getElementById('toLogin').addEventListener('click', (e)=>{ e.preventDefault(); authMode='login'; renderAuthBody(); });
+  } else if(authMode==='signup-athlete'){
+    el.innerHTML = `
+      <h3 style="font-size:15px;margin-bottom:14px;">Crea tu cuenta de deportista</h3>
+      <p class="meta" style="margin-bottom:14px;">Te han invitado a unirte a un equipo de entrenamiento.</p>
+      <div class="field"><label>Tu nombre</label><input type="text" id="a_name"></div>
+      <div class="field"><label>Email</label><input type="email" id="a_email"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="a_pass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn btn-primary" id="signupBtn" style="width:100%;margin-bottom:10px;">Crear cuenta</button>
+      <p class="meta" style="text-align:center;">¿Ya tienes cuenta? <a href="#" id="toLogin" style="color:var(--yellow);">Iniciar sesión</a></p>
+    `;
+    document.getElementById('signupBtn').addEventListener('click', ()=>doSignup('athlete', inviteCoachId));
+    document.getElementById('toLogin').addEventListener('click', (e)=>{ e.preventDefault(); authMode='login'; renderAuthBody(); });
+  } else {
+    el.innerHTML = `
+      <h3 style="font-size:15px;margin-bottom:14px;">Iniciar sesión</h3>
+      <div class="field"><label>Email</label><input type="email" id="a_email"></div>
+      <div class="field"><label>Contraseña</label><input type="password" id="a_pass"></div>
+      <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-bottom:10px;">Entrar</button>
+      <p class="meta" style="text-align:center;">¿Primera vez como entrenador? <a href="#" id="toSignupCoach" style="color:var(--yellow);">Crear cuenta</a></p>
+    `;
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
+    document.getElementById('toSignupCoach').addEventListener('click', (e)=>{ e.preventDefault(); authMode='signup-coach'; renderAuthBody(); });
+  }
+}
+async function doLogin(){
+  const email = document.getElementById('a_email').value.trim();
+  const pass = document.getElementById('a_pass').value;
+  if(!email || !pass){ toast('Rellena email y contraseña.'); return; }
+  const { error } = await sb.auth.signInWithPassword({email, password: pass});
+  if(error){ toast('No se pudo iniciar sesión: '+error.message); return; }
+  await afterAuth();
+}
+async function doSignup(role, coachId){
+  const name = document.getElementById('a_name').value.trim();
+  const email = document.getElementById('a_email').value.trim();
+  const pass = document.getElementById('a_pass').value;
+  if(!name || !email || !pass){ toast('Rellena todos los campos.'); return; }
+  if(pass.length < 6){ toast('La contraseña debe tener al menos 6 caracteres.'); return; }
+  const { data, error } = await sb.auth.signUp({email, password: pass});
+  if(error){ toast('No se pudo crear la cuenta: '+error.message); return; }
+  if(!data.session){
+    toast('Revisa tu email para confirmar la cuenta antes de entrar.');
+    return;
+  }
+  const profileRow = { id: data.user.id, role, coach_id: role==='coach' ? null : coachId, name, email };
+  const { error: pErr } = await sb.from('profiles').insert(profileRow);
+  if(pErr){ toast('Cuenta creada pero hubo un error al configurar el perfil: '+pErr.message); return; }
+  await afterAuth();
+}
+async function afterAuth(){
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){ authMode='login'; renderAuthScreen(); return; }
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  if(error || !profile){
+    toast('No se pudo cargar tu perfil.');
+    await sb.auth.signOut();
+    authMode='login'; renderAuthScreen(); return;
+  }
+  view.role = profile.role;
+  view.coachId = profile.role==='coach' ? profile.id : profile.coach_id;
+  view.athleteId = profile.role==='athlete' ? profile.id : null;
+  view.section = profile.role==='coach' ? 'panel' : 'week';
+  view.myName = profile.name;
+  await startApp();
+}
+async function startApp(){
+  document.getElementById('app').innerHTML = APP_SHELL;
+  document.getElementById('main').innerHTML = '<div class="meta">Cargando…</div>';
+  await loadAll();
+  render();
 }
 
 /* ==================== NAV CONFIG ==================== */
@@ -399,32 +489,14 @@ function renderSideNav(){
 
 function renderTopbar(){
   const el = document.getElementById('topbar');
-  let athletePicker = '';
-  if(view.role==='athlete'){
-    athletePicker = `<div class="athlete-picker-inline">
-      <select id="athleteSelect">
-        <option value="">Elige tu perfil…</option>
-        ${state.athletes.map(a=>`<option value="${a.id}" ${a.id===view.athleteId?'selected':''}>${esc(a.name)}</option>`).join('')}
-      </select>
-    </div>`;
-  }
   el.innerHTML = `
-    <div class="role-switch">
-      <button data-role="coach" class="${view.role==='coach'?'active':''}">Entrenador</button>
-      <button data-role="athlete" class="${view.role==='athlete'?'active':''}">Deportista</button>
-    </div>
-    ${athletePicker}
+    <div class="meta">${esc(view.myName)} · ${view.role==='coach'?'Entrenador':'Deportista'}</div>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn">Cerrar sesión</button>
   `;
-  el.querySelectorAll('[data-role]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      view.role = btn.getAttribute('data-role');
-      view.section = view.role==='coach' ? 'panel' : 'week';
-      if(view.role==='athlete' && !view.athleteId) view.section='week';
-      savePref(); render();
-    });
+  document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+    await sb.auth.signOut();
+    location.reload();
   });
-  const sel = document.getElementById('athleteSelect');
-  if(sel) sel.addEventListener('change', ()=>{ view.athleteId = sel.value || null; savePref(); render(); });
 }
 
 function esc(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -639,14 +711,12 @@ function renderAthletes(main){
   main.innerHTML = `
     <div class="section-head">
       <div><h2>Deportistas</h2><div class="sub">Tu comunidad de deportistas</div></div>
-      <button class="btn btn-primary" id="addAthleteBtn">+ Añadir deportista</button>
     </div>
     <div id="athleteList"></div>
   `;
-  document.getElementById('addAthleteBtn').addEventListener('click', ()=>athleteForm());
   const list = document.getElementById('athleteList');
   if(!state.athletes.length){
-    list.innerHTML = `<div class="empty"><h3>Todavía no hay deportistas</h3><p>Añade a la primera persona de tu comunidad para empezar a programarle trabajo.</p></div>`;
+    list.innerHTML = `<div class="empty"><h3>Todavía no hay deportistas</h3><p>Comparte tu enlace de invitación desde la sección "Compartir" para que se unan a tu equipo.</p></div>`;
     return;
   }
   list.innerHTML = state.athletes.map(a=>`
@@ -657,30 +727,31 @@ function renderAthletes(main){
         ${a.notes? `<div class="meta" style="margin-top:4px;">${esc(a.notes)}</div>` : ''}
       </div>
       <div class="actions">
-        <button class="btn btn-sm btn-primary" data-invite="${a.id}">Invitar</button>
         <button class="btn btn-sm" data-edit="${a.id}">Editar</button>
-        <button class="btn btn-sm btn-danger" data-del="${a.id}">Eliminar</button>
+        <button class="btn btn-sm btn-danger" data-del="${a.id}">Dar de baja</button>
       </div>
     </div>`).join('');
-  list.querySelectorAll('[data-invite]').forEach(b=>b.addEventListener('click', ()=>inviteModal(b.getAttribute('data-invite'))));
   list.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>athleteForm(b.getAttribute('data-edit'))));
-  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
+  list.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
     const id = b.getAttribute('data-del');
-    if(confirm('¿Eliminar a este deportista? No se borrarán sus sesiones ya asignadas.')){
-      state.athletes = state.athletes.filter(a=>a.id!==id);
-      persist('athletes'); render();
+    if(confirm('¿Dar de baja a este deportista? Perderá el acceso a tu equipo (sus sesiones ya asignadas no se borran).')){
+      const { error } = await sb.from('profiles').delete().eq('id', id);
+      if(error){ toast('No se pudo dar de baja: '+error.message); return; }
+      state.athletes = await loadAthletes();
+      render();
     }
   }));
 }
 function athleteForm(id){
-  const a = id ? state.athletes.find(x=>x.id===id) : {id:uid('ath'), name:'', sport:'', email:'', phone:'', notes:''};
-  openModal(id?'Editar deportista':'Nuevo deportista', `
+  const a = state.athletes.find(x=>x.id===id);
+  if(!a) return;
+  openModal('Editar deportista', `
     <div class="field"><label>Nombre</label><input type="text" id="f_name" value="${esc(a.name)}"></div>
     <div class="row">
       <div class="field"><label>Deporte / disciplina</label><input type="text" id="f_sport" value="${esc(a.sport)}"></div>
-      <div class="field"><label>Email (opcional)</label><input type="email" id="f_email" value="${esc(a.email)}"></div>
+      <div class="field"><label>Email</label><input type="email" id="f_email" value="${esc(a.email)}" disabled title="El email de acceso no se puede editar aquí"></div>
     </div>
-    <div class="field"><label>Teléfono (opcional, para invitar por WhatsApp)</label><input type="text" id="f_phone" value="${esc(a.phone)}" placeholder="+34 600 000 000"></div>
+    <div class="field"><label>Teléfono (opcional)</label><input type="text" id="f_phone" value="${esc(a.phone)}" placeholder="+34 600 000 000"></div>
     <div class="field"><label>Notas</label><textarea id="f_notes">${esc(a.notes)}</textarea></div>
     <div class="modal-actions">
       <button class="btn" id="cancelBtn">Cancelar</button>
@@ -688,14 +759,17 @@ function athleteForm(id){
     </div>
   `, (body)=>{
     body.querySelector('#cancelBtn').addEventListener('click', closeModal);
-    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+    body.querySelector('#saveBtn').addEventListener('click', async ()=>{
       const name = body.querySelector('#f_name').value.trim();
       if(!name){ toast('Ponle un nombre al deportista.'); return; }
-      a.name=name; a.sport=body.querySelector('#f_sport').value.trim();
-      a.email=body.querySelector('#f_email').value.trim(); a.phone=body.querySelector('#f_phone').value.trim();
-      a.notes=body.querySelector('#f_notes').value.trim();
-      if(!id) state.athletes.push(a);
-      persist('athletes'); closeModal(); render();
+      const updates = {
+        name, sport: body.querySelector('#f_sport').value.trim(),
+        phone: body.querySelector('#f_phone').value.trim(), notes: body.querySelector('#f_notes').value.trim()
+      };
+      const { error } = await sb.from('profiles').update(updates).eq('id', a.id);
+      if(error){ toast('No se pudo guardar: '+error.message); return; }
+      state.athletes = await loadAthletes();
+      closeModal(); render();
     });
   });
 }
@@ -703,7 +777,7 @@ function athleteForm(id){
 /* ==================== COACH: SHARE / INVITE ==================== */
 function defaultInviteText(link, name){
   const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-  return `${greet} Te invito a mi app de entrenamiento. Ahí voy a programarte las sesiones y los cuestionarios (wellness, RPE...), y podrás verlos y responder directamente desde tu móvil.\n\nEntra aquí: ${link || '[pega el enlace de la app]'}\n\nAl abrirla, pulsa "Deportista" arriba y elige tu perfil${name? ' ("'+name+'")' : ''}.`;
+  return `${greet} Te invito a unirte a mi equipo en Athlete Performance. Ahí voy a programarte las sesiones y los cuestionarios (wellness, RPE...), y podrás verlos y responder directamente desde tu móvil.\n\nCrea tu cuenta aquí: ${link}`;
 }
 function mailtoLink(to, subject, body){
   return `mailto:${encodeURIComponent(to||'')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -716,97 +790,61 @@ async function copyText(text){
   try{ await navigator.clipboard.writeText(text); toast('Mensaje copiado.'); }
   catch(e){ toast('No se pudo copiar automáticamente. Selecciónalo y cópialo a mano.'); }
 }
-function shareLinkStatusHtml(){
-  if(state.appLink){
-    return `<div class="field"><label>Enlace publicado de tu app</label>
-      <div class="row"><input type="text" id="f_link" value="${esc(state.appLink)}"><button class="btn btn-sm" id="saveLinkBtn">Guardar</button></div>
-    </div>`;
-  }
-  return `<div class="empty" style="text-align:left;padding:16px 18px;margin-bottom:14px;">
-    <h3 style="font-size:14px;">Aún no tienes un enlace público</h3>
-    <p>Esta app vive dentro de Claude. Para que tus deportistas puedan abrirla desde su móvil sin pasar por ti cada vez, publícala: abre este artefacto en Claude y pulsa <strong>«Publicar»</strong> (arriba a la derecha del artefacto). Te dará un enlace público — pégalo aquí abajo.</p>
-    <div class="field"><label>Pega aquí tu enlace publicado</label>
-      <div class="row"><input type="text" id="f_link" placeholder="https://claude.ai/..."><button class="btn btn-sm btn-primary" id="saveLinkBtn">Guardar</button></div>
-    </div>
-  </div>`;
-}
 function renderShare(main){
+  const athleteInviteLink = `${APP_URL}?invite=${view.coachId}`;
+  const coachInviteLink = `${APP_URL}?invite=coach`;
   main.innerHTML = `
     <div class="section-head">
-      <div><h2>Compartir</h2><div class="sub">Invita a tu comunidad a usar la app</div></div>
+      <div><h2>Compartir</h2><div class="sub">Invita a deportistas o a otros entrenadores a tu app</div></div>
     </div>
     <div class="card" style="margin-bottom:22px;">
-      ${shareLinkStatusHtml()}
-      <div class="field" style="margin-top:6px;"><label>Mensaje de invitación (general)</label>
-        <textarea id="genericMsg">${esc(defaultInviteText(state.appLink))}</textarea>
+      <h3 style="font-size:14px;margin-bottom:10px;">Invitar deportistas a tu equipo</h3>
+      <div class="field"><label>Enlace de invitación</label>
+        <div class="row"><input type="text" id="athLink" value="${esc(athleteInviteLink)}" readonly></div>
+      </div>
+      <div class="field"><label>Mensaje</label>
+        <textarea id="athMsg" rows="6">${esc(defaultInviteText(athleteInviteLink))}</textarea>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" id="genMail">Enviar por email</button>
-        <button class="btn" id="genWa">Enviar por WhatsApp</button>
-        <button class="btn" id="genShare">Compartir…</button>
-        <button class="btn" id="genCopy">Copiar mensaje</button>
+        <button class="btn" id="athMail">Enviar por email</button>
+        <button class="btn" id="athWa">Enviar por WhatsApp</button>
+        <button class="btn" id="athShare">Compartir…</button>
+        <button class="btn" id="athCopy">Copiar mensaje</button>
       </div>
-      <p class="meta" style="margin-top:10px;">Estos botones abren tu propio correo, WhatsApp o el panel de compartir de tu móvil/navegador con el mensaje ya escrito — tú decides a quién enviarlo. No mando nada en tu nombre.</p>
+      <p class="meta" style="margin-top:10px;">Cualquiera que abra este enlace crea su propia cuenta y aparece automáticamente en tu lista de deportistas — solo tendrá acceso a su propia vista, nunca a la de entrenador.</p>
     </div>
-    <h3 style="font-size:15px;margin-bottom:10px;">Invitar uno a uno</h3>
-    <div id="shareAthList"></div>
+    <div class="card">
+      <h3 style="font-size:14px;margin-bottom:10px;">Invitar a otro entrenador</h3>
+      <div class="field"><label>Enlace de invitación</label>
+        <div class="row"><input type="text" id="coachLink" value="${esc(coachInviteLink)}" readonly></div>
+      </div>
+      <div class="field"><label>Mensaje</label>
+        <textarea id="coachMsg" rows="6">Te invito a usar Athlete Performance como entrenador — tendrás tu propio equipo de deportistas, totalmente independiente del mío.\n\nCrea tu cuenta aquí: ${esc(coachInviteLink)}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="coachMail">Enviar por email</button>
+        <button class="btn" id="coachWa">Enviar por WhatsApp</button>
+        <button class="btn" id="coachShare">Compartir…</button>
+        <button class="btn" id="coachCopy">Copiar mensaje</button>
+      </div>
+      <p class="meta" style="margin-top:10px;">Quien se registre con este enlace será un entrenador independiente, con sus propios deportistas, ejercicios y sesiones — no verá los tuyos ni tú los suyos.</p>
+    </div>
   `;
-  const linkInput = main.querySelector('#f_link');
-  if(linkInput){
-    main.querySelector('#saveLinkBtn').addEventListener('click', async ()=>{
-      state.appLink = linkInput.value.trim();
-      await saveKey('app-link', state.appLink, false);
-      toast('Enlace guardado.'); render();
-    });
-  }
-  const genericMsgArea = main.querySelector('#genericMsg');
-  main.querySelector('#genMail').addEventListener('click', ()=>{ location.href = mailtoLink('', 'Invitación a mi app de entrenamiento', genericMsgArea.value); });
-  main.querySelector('#genWa').addEventListener('click', ()=>{ window.open(whatsappLink('', genericMsgArea.value), '_blank'); });
-  main.querySelector('#genCopy').addEventListener('click', ()=>copyText(genericMsgArea.value));
-  main.querySelector('#genShare').addEventListener('click', async ()=>{
-    if(navigator.share){
-      try{ await navigator.share({title:'Mi app de entrenamiento', text: genericMsgArea.value}); }
-      catch(e){ /* cancelado por el usuario */ }
-    } else { copyText(genericMsgArea.value); toast('Tu navegador no tiene panel de compartir — mensaje copiado, pégalo donde quieras.'); }
+  const athMsg = main.querySelector('#athMsg');
+  main.querySelector('#athMail').addEventListener('click', ()=>{ location.href = mailtoLink('', 'Invitación a Athlete Performance', athMsg.value); });
+  main.querySelector('#athWa').addEventListener('click', ()=>{ window.open(whatsappLink('', athMsg.value), '_blank'); });
+  main.querySelector('#athCopy').addEventListener('click', ()=>copyText(athMsg.value));
+  main.querySelector('#athShare').addEventListener('click', async ()=>{
+    if(navigator.share){ try{ await navigator.share({title:'Athlete Performance', text: athMsg.value}); }catch(e){} }
+    else { copyText(athMsg.value); toast('Mensaje copiado.'); }
   });
-
-  const list = main.querySelector('#shareAthList');
-  if(!state.athletes.length){
-    list.innerHTML = emptyBlock('Añade deportistas para poder invitarlos individualmente.');
-    return;
-  }
-  list.innerHTML = state.athletes.map(a=>`
-    <div class="list-row">
-      <div><strong>${esc(a.name)}</strong>
-        <div class="meta">${a.email? esc(a.email):'sin email'}${a.phone? ' · '+esc(a.phone):''}</div>
-      </div>
-      <div class="actions"><button class="btn btn-sm btn-primary" data-invite="${a.id}">Invitar</button></div>
-    </div>`).join('');
-  list.querySelectorAll('[data-invite]').forEach(b=>b.addEventListener('click', ()=>inviteModal(b.getAttribute('data-invite'))));
-}
-function inviteModal(athleteId){
-  const a = state.athletes.find(x=>x.id===athleteId);
-  const text = defaultInviteText(state.appLink, a.name);
-  openModal(`Invitar a ${esc(a.name)}`, `
-    <div class="field"><label>Mensaje</label><textarea id="msgArea" rows="7">${esc(text)}</textarea></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn" id="mMail">Email${a.email? '' : ' (elige destinatario)'}</button>
-      <button class="btn" id="mWa">WhatsApp${a.phone? '' : ' (elige destinatario)'}</button>
-      <button class="btn" id="mShare">Compartir…</button>
-      <button class="btn" id="mCopy">Copiar</button>
-    </div>
-    ${!state.appLink? '<p class="meta" style="margin-top:10px;">Aún no has guardado el enlace público de tu app — añádelo en «Compartir» para que quede incluido aquí.</p>':''}
-  `, (body)=>{
-    const msg = body.querySelector('#msgArea');
-    body.querySelector('#mMail').addEventListener('click', ()=>{ location.href = mailtoLink(a.email, 'Invitación a mi app de entrenamiento', msg.value); });
-    body.querySelector('#mWa').addEventListener('click', ()=>{ window.open(whatsappLink(a.phone, msg.value), '_blank'); });
-    body.querySelector('#mCopy').addEventListener('click', ()=>copyText(msg.value));
-    body.querySelector('#mShare').addEventListener('click', async ()=>{
-      if(navigator.share){
-        try{ await navigator.share({title:'Mi app de entrenamiento', text: msg.value}); }
-        catch(e){}
-      } else { copyText(msg.value); toast('Mensaje copiado.'); }
-    });
+  const coachMsg = main.querySelector('#coachMsg');
+  main.querySelector('#coachMail').addEventListener('click', ()=>{ location.href = mailtoLink('', 'Invitación a Athlete Performance', coachMsg.value); });
+  main.querySelector('#coachWa').addEventListener('click', ()=>{ window.open(whatsappLink('', coachMsg.value), '_blank'); });
+  main.querySelector('#coachCopy').addEventListener('click', ()=>copyText(coachMsg.value));
+  main.querySelector('#coachShare').addEventListener('click', async ()=>{
+    if(navigator.share){ try{ await navigator.share({title:'Athlete Performance', text: coachMsg.value}); }catch(e){} }
+    else { copyText(coachMsg.value); toast('Mensaje copiado.'); }
   });
 }
 
@@ -1564,9 +1602,18 @@ function renderAthleteHistory(main){
 
 /* ==================== BOOT ==================== */
 (async function boot(){
-  document.getElementById('main').innerHTML = '<div class="meta">Cargando…</div>';
-  await loadAll();
-  render();
+  const params = new URLSearchParams(location.search);
+  const invite = params.get('invite');
+  if(invite === 'coach'){ authMode = 'signup-coach'; }
+  else if(invite){ authMode = 'signup-athlete'; inviteCoachId = invite; }
+  else { authMode = 'login'; }
+
+  const { data: { session } } = await sb.auth.getSession();
+  if(session){
+    await afterAuth();
+  } else {
+    renderAuthScreen();
+  }
 })();
 </script>
 </body>
