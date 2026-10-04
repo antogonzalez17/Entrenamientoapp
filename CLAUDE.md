@@ -78,7 +78,10 @@ varios entrenadores independientes, cada uno con su propio equipo.
   miniatura), creador de sesiones por bloques con nombre (cada bloque agrupa
   varios ejercicios, que pueden agruparse en superseries: `blk.supersets`
   = [{id, rounds, rest}] y cada ejercicio de la superserie lleva
-  `supersetId`; sus series = rondas de la superserie; etiquetas A1, A2…)
+  `supersetId`; sus series se rellenan con las rondas pero se pueden cambiar
+  a mano (`setsCustom`), hasta que se vuelvan a cambiar las rondas; para
+  agrupar: casilla en cada ejercicio + barra «Crear superserie» / «Añadir
+  a la superserie X» / «Sacar de la superserie»; etiquetas A1, A2…)
   organizadas en carpetas, cuestionarios personalizables,
   "Planificación" (antes "Calendario"): vista Semana y vista Mes, botones
   ‹ Hoy ›, el día actual resaltado en rojo; al entrar siempre abre la
