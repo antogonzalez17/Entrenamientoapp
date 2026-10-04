@@ -183,6 +183,36 @@
   .day-item.is-q{border-left:3px solid var(--chalk-dim);}
   .day-item-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
   .item-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-scroll table{min-width:560px;}
+  .day-item-go{font-size:20px;color:var(--chalk-dim);line-height:1;}
+  /* Ficha de lo asignado (Planificación) */
+  .asg-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-panel-2);padding:14px;margin-bottom:14px;}
+  .asg-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .asg-actions{display:flex;justify-content:space-around;gap:6px;margin-top:6px;flex-wrap:wrap;}
+  .asg-act{display:flex;flex-direction:column;align-items:center;gap:5px;background:transparent;border:none;color:var(--chalk);font-size:11.5px;cursor:pointer;min-width:70px;padding:4px;}
+  .asg-act span{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-size:17px;}
+  .asg-act:hover span{border-color:var(--yellow);background:var(--yellow-dim);}
+  .asg-act.danger{color:#FF6B6B;}
+  .asg-act.danger:hover span{border-color:#FF6B6B;background:rgba(255,107,107,.12);}
+  .asg-summary .sum-block{margin-bottom:12px;}
+  .sum-block-name{font-size:12px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+  .sum-item{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;background:var(--bg-panel);display:flex;gap:8px;}
+  .sum-item.sum-ss{display:block;}
+  .sum-ss summary{cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:center;gap:6px;}
+  .sum-ss summary::-webkit-details-marker{display:none;}
+  .sum-ss summary::after{content:'▾';margin-left:auto;color:var(--chalk-dim);}
+  .sum-ss[open] summary::after{content:'▴';}
+  .sum-num{color:var(--chalk-faint);font-variant-numeric:tabular-nums;}
+  .sum-list{list-style:none;margin:0;padding:0;flex:1;}
+  .sum-ss .sum-list{margin-top:8px;}
+  .sum-list li{padding:3px 0;font-size:13px;}
+  .sum-list li .meta{margin-left:6px;}
+  .sum-qlist{margin:0;padding-left:20px;font-size:13px;}
+  .sum-qlist li{padding:3px 0;}
+  .preview-frame{max-width:430px;margin:0 auto;border:1px solid var(--line-strong);border-radius:18px;padding:10px;background:var(--bg);}
+  .preview-frame .card{margin:0;}
+  .preview-frame table{font-size:12px;}
   /* Carpetas */
   .folder-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
   .folder-chip{border:1px solid var(--line-strong);background:var(--bg-panel);color:var(--chalk);padding:7px 12px;border-radius:var(--radius);font-size:13px;cursor:pointer;}
@@ -1695,8 +1725,119 @@ function calendarItems(d){
     ...state.qAssignments.filter(f).map(a=>({...a,_kind:'cuestionario'}))
   ];
 }
-function openCalendarItem(kind, id){
-  if(kind==='sesión') viewSessionAssignment(id, true); else viewQAssignment(id, true);
+function openCalendarItem(kind, id, fromDate){ assignmentCard(kind, id, fromDate); }
+// En previsualización todo se ve como el deportista, pero no se puede tocar (salvo los vídeos)
+function lockPreview(area){
+  area.querySelectorAll('input, textarea, select, button').forEach(el=>{ if(!el.hasAttribute('data-playvideo')) el.disabled = true; });
+  area.querySelectorAll('[data-playvideo]').forEach(btn=>btn.addEventListener('click', ()=>showVideoPlayer(area, btn.getAttribute('data-playvideo'), btn.getAttribute('data-title'))));
+}
+// Resumen de la sesión: bloques y, dentro, ejercicios o superseries desplegables
+function sessionSummaryHtml(a){
+  const blocks = migrateBlocks(a.blocks);
+  if(!blocks.length) return '<p class="meta">Esta sesión no tiene ejercicios.</p>';
+  const exLine = (ex,label)=>`<li>${label?`<span class="ss-tag">${label}</span>`:''}<strong>${esc(ex.exerciseName||'Ejercicio')}</strong>
+    <span class="meta">${[ex.sets&&ex.reps ? esc(ex.sets)+' × '+esc(ex.reps) : (ex.sets? esc(ex.sets)+' series' : (ex.reps? esc(ex.reps)+' reps':'')), ex.load? esc(ex.load):'', ex.rest? 'desc. '+esc(ex.rest):''].filter(Boolean).join(' · ')}</span>${ex.done?' <span class="meta">✓</span>':''}</li>`;
+  return blocks.map(blk=>{
+    let n = 0;
+    return `<div class="sum-block">${blk.name?`<div class="sum-block-name">${esc(blk.name)}</div>`:''}
+      ${blockSegments(blk).map(seg=>{
+        n++;
+        if(seg.single) return `<div class="sum-item"><span class="sum-num">${n}.</span><ul class="sum-list">${exLine(seg.single,'')}</ul></div>`;
+        return `<details class="sum-item sum-ss"><summary><span class="sum-num">${n}.</span> Superserie ${seg.letter} de ${esc(seg.ss.rounds)} ronda${String(seg.ss.rounds)==='1'?'':'s'}${seg.ss.rest?` <span class="meta">· desc. ${esc(seg.ss.rest)}</span>`:''}</summary>
+          <ul class="sum-list">${seg.exs.map((ex,i)=>exLine(ex, seg.letter+(i+1))).join('')}</ul></details>`;
+      }).join('') || '<p class="meta">Bloque sin ejercicios.</p>'}</div>`;
+  }).join('');
+}
+function assignmentCard(kind, id, fromDate){
+  const isS = kind==='sesión';
+  const a = (isS ? state.assignments : state.qAssignments).find(x=>x.id===id); if(!a) return;
+  const done = a.status==='completada';
+  const summary = isS ? sessionSummaryHtml(a)
+    : `<ol class="sum-qlist">${(a.questions||[]).map(q=>`<li>${esc(q.text)}${done?` <span class="meta">→ ${esc(a.responses[q.id]??'—')}</span>`:''}</li>`).join('')}</ol>`;
+  const bodyHtml = `
+    ${fromDate ? `<button type="button" class="btn btn-ghost btn-sm" id="backToDay" style="margin-bottom:10px;">← Volver al día</button>` : ''}
+    <div class="asg-card">
+      <div class="asg-card-top">
+        <span class="badge ${done?'badge-done':'badge-pending'}">${done?'completada':'pendiente'}</span>
+        <span class="meta">${isS?'Sesión':'Cuestionario'} · ${esc(athleteName(a.athleteId))}</span>
+      </div>
+      <div class="field"><label>Fecha programada</label><input type="date" id="f_asg_date" value="${a.date}"></div>
+      ${isS && a.focus ? `<p class="meta" style="margin:0 0 8px 0;">Enfoque: ${esc(a.focus)}</p>` : ''}
+      ${isS && done && (a.rpe!=null || a.athleteNotes) ? `<p class="meta" style="margin:0 0 8px 0;">${a.rpe!=null?'RPE '+esc(a.rpe):''}${a.rpe!=null && a.athleteNotes?' · ':''}${a.athleteNotes?'«'+esc(a.athleteNotes)+'»':''}</p>` : ''}
+      <div class="asg-actions">
+        ${isS ? `<button type="button" class="asg-act" id="actEdit"><span>✎</span>Editar</button>` : ''}
+        <button type="button" class="asg-act" id="actPreview"><span>👁</span>Previsualizar</button>
+        <button type="button" class="asg-act" id="actCopy"><span>👥</span>Asignar a otro</button>
+        <button type="button" class="asg-act danger" id="actDel"><span>🗑</span>Eliminar</button>
+      </div>
+    </div>
+    <div class="asg-summary">${summary}</div>`;
+  openModal(esc(a.templateName), bodyHtml, (body)=>{
+    const back = body.querySelector('#backToDay'); if(back) back.addEventListener('click', ()=>dayMenu(fromDate));
+    const edit = body.querySelector('#actEdit'); if(edit) edit.addEventListener('click', ()=>{ closeModal(); editAssignedSession(a.id); });
+    body.querySelector('#actDel').addEventListener('click', ()=>removeAssignment(kind, a.id));
+    body.querySelector('#actCopy').addEventListener('click', ()=>assignCopyForm(kind, a.id, fromDate));
+    body.querySelector('#actPreview').addEventListener('click', ()=>{
+      body.innerHTML = `<button type="button" class="btn btn-ghost btn-sm" id="backToCard" style="margin-bottom:10px;">← Volver</button>
+        <p class="meta" style="margin:0 0 10px 0;">Así lo ve ${esc(athleteName(a.athleteId))} en su móvil (vista previa: no se puede rellenar).</p>
+        <div id="previewArea" class="preview-frame"></div>`;
+      body.querySelector('#backToCard').addEventListener('click', ()=>assignmentCard(kind, a.id, fromDate));
+      const container = body.querySelector('#previewArea');
+      if(isS) viewSessionAssignment(a.id, true, {preview:true, container}); else viewQAssignment(a.id, true, {preview:true, container});
+    });
+    // Cambiar la fecha directamente desde la ficha
+    const dateInp = body.querySelector('#f_asg_date');
+    dateInp.addEventListener('change', async ()=>{
+      const nd = dateInp.value; if(!nd || nd===a.date) return;
+      const old = a.date; a.date = nd;
+      const ok = await updateItem(a);
+      if(!ok){ a.date = old; dateInp.value = old; toast('No se ha podido cambiar la fecha. Revisa tu conexión.'); return; }
+      toast('Movida al '+fmtDate(nd)+'.');
+      render();
+    });
+  });
+}
+// Copiar una sesión o cuestionario ya asignado a otros deportistas
+function assignCopyForm(kind, id, fromDate){
+  const isS = kind==='sesión';
+  const a = (isS ? state.assignments : state.qAssignments).find(x=>x.id===id); if(!a) return;
+  const others = state.athletes.filter(x=>x.id!==a.athleteId);
+  openModal(`Asignar «${esc(a.templateName)}» a otro deportista`, `
+    <div class="field"><label>Fecha</label><input type="date" id="f_date" value="${a.date}"></div>
+    <fieldset><legend>Deportistas</legend><div class="check-list">
+      ${others.map(x=>`<label class="check-row"><input type="checkbox" value="${x.id}" class="ath-check"> ${esc(x.name)}</label>`).join('') || '<div class="meta">No tienes más deportistas en tu equipo.</div>'}
+    </div></fieldset>
+    <p class="meta" style="font-size:11.5px;">Se copia tal y como está asignada (con los cambios que le hayas hecho), sin lo que haya marcado o respondido ${esc(athleteName(a.athleteId))}.</p>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-primary" id="saveBtn" ${others.length?'':'disabled'}>Asignar</button></div>
+  `, (body)=>{
+    body.querySelector('#cancelBtn').addEventListener('click', ()=>assignmentCard(kind, id, fromDate));
+    const btn = body.querySelector('#saveBtn');
+    btn.addEventListener('click', async ()=>{
+      const date = body.querySelector('#f_date').value;
+      const ids = Array.from(body.querySelectorAll('.ath-check:checked')).map(c=>c.value);
+      if(!date){ toast('Elige una fecha.'); return; }
+      if(!ids.length){ toast('Elige al menos un deportista.'); return; }
+      let skipped = 0;
+      const copies = ids.filter(athleteId=>{
+        if(!isS && state.qAssignments.some(x=>x.athleteId===athleteId && x.date===date && x.templateId===a.templateId)){ skipped++; return false; }
+        return true;
+      }).map(athleteId=>{
+        const c = JSON.parse(JSON.stringify(a));
+        c.id = uid(isS?'asg':'qasg'); c.athleteId = athleteId; c.date = date;
+        c.status = 'pendiente'; c.completedAt = null;
+        if(isS){ c.rpe = null; c.athleteNotes = ''; (c.blocks||[]).forEach(b=>(b.exercises||[]).forEach(x=>{ x.done = false; })); }
+        else c.responses = {};
+        return c;
+      });
+      if(!copies.length){ toast('Ese cuestionario ya lo tenían asignado ese día.'); return; }
+      btn.disabled = true; btn.textContent = 'Asignando...';
+      const ok = await insertItems(isS?'session':'questionnaire', copies);
+      if(!ok){ btn.disabled = false; btn.textContent = 'Asignar'; toast('No se ha podido asignar. Revisa tu conexión e inténtalo de nuevo.'); return; }
+      (isS ? state.assignments : state.qAssignments).push(...copies);
+      toast(`Asignado a ${copies.length} deportista${copies.length>1?'s':''}`+(skipped?` (${skipped} ya lo tenía${skipped>1?'n':''})`:'')+'.');
+      closeModal(); render();
+    });
+  });
 }
 function renderCalendar(main){
   const today = todayISO();
@@ -1862,7 +2003,7 @@ function dayMenu(date){
     ${items.length ? `<div style="margin-bottom:14px;">${items.map(it=>`<div class="day-item day-item-row ${it._kind==='cuestionario'?'is-q':''}" data-kind="${it._kind}" data-id="${it.id}">
         <div><span class="t">${esc(it.templateName)}</span>
         ${it._kind==='sesión'?'Sesión':'Cuestionario'} · ${esc(athleteName(it.athleteId))} · ${it.status==='completada'?'✓ completada':'pendiente'}</div>
-        ${coachItemActions(it._kind, it.id)}
+        <span class="day-item-go" aria-hidden="true">›</span>
       </div>`).join('')}</div>` : '<p class="meta" style="margin-bottom:14px;">Nada programado este día.</p>'}
     <div class="modal-actions" style="justify-content:flex-start;">
       <button class="btn btn-primary" id="addSess">+ Añadir sesión</button>
@@ -1871,11 +2012,8 @@ function dayMenu(date){
   openModal(esc(fmtDate(date)), bodyHtml, (body)=>{
     body.querySelector('#addSess').addEventListener('click', ()=>assignForm(defaultAssignPrefill({date, mode:'session'})));
     body.querySelector('#addQ').addEventListener('click', ()=>assignForm(defaultAssignPrefill({date, mode:'questionnaire'})));
-    wireCoachItemActions(body);
     body.querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click', ()=>{
-      closeModal();
-      openCalendarItem(el.getAttribute('data-kind'), el.getAttribute('data-id'));
-      const area = document.getElementById('detailArea'); if(area) area.scrollIntoView({behavior:'smooth'});
+      openCalendarItem(el.getAttribute('data-kind'), el.getAttribute('data-id'), date);
     }));
   });
 }
@@ -2095,15 +2233,19 @@ function renderAthleteWeek(main){
   });
 }
 
-function viewSessionAssignment(id, readOnlyCoachView){
+// opts.preview: el entrenador ve la sesión tal y como le sale al deportista (sin poder tocar nada)
+// opts.container: dónde pintarla (por defecto, debajo del calendario / la página)
+function viewSessionAssignment(id, readOnlyCoachView, opts){
+  opts = opts || {};
   const a = state.assignments.find(x=>x.id===id);
   a.blocks = migrateBlocks(a.blocks);
-  const area = document.getElementById('detailArea') || document.getElementById('main');
-  const readonly = readOnlyCoachView;
+  const area = opts.container || document.getElementById('detailArea') || document.getElementById('main');
+  const preview = !!opts.preview;
+  const readonly = readOnlyCoachView && !preview;
   const blocksHtml = a.blocks.map(blk=>`
     <div style="margin-top:16px;">
       ${blk.name? `<h4 style="font-size:13px;color:var(--chalk-dim);margin-bottom:6px;">${esc(blk.name)}</h4>` : ''}
-      <table><thead><tr><th></th><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Carga</th><th>Descanso</th><th>Vídeo</th><th>Notas</th></tr></thead>
+      <div class="table-scroll"><table><thead><tr><th></th><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Carga</th><th>Descanso</th><th>Vídeo</th><th>Notas</th></tr></thead>
       <tbody>
         ${blockSegments(blk).map(seg=>{
           const rows = seg.single ? [[seg.single,'']] : seg.exs.map((ex,i)=>[ex, seg.letter+(i+1)]);
@@ -2116,7 +2258,7 @@ function viewSessionAssignment(id, readOnlyCoachView){
           <td>${esc(ex.notes)}</td>
         </tr>`).join('');
         }).join('')}
-      </tbody></table>
+      </tbody></table></div>
     </div>
   `).join('');
   const html = `
@@ -2140,6 +2282,7 @@ function viewSessionAssignment(id, readOnlyCoachView){
     </div>
   `;
   area.innerHTML = html;
+  if(preview){ lockPreview(area); return; }
   area.scrollIntoView({behavior:'smooth', block:'nearest'});
   wireCoachItemActions(area);
   area.querySelectorAll('[data-blkid][data-exid]').forEach(cb=>{
@@ -2182,10 +2325,12 @@ function viewSessionAssignment(id, readOnlyCoachView){
   }
 }
 
-function viewQAssignment(id, readOnlyCoachView){
+function viewQAssignment(id, readOnlyCoachView, opts){
+  opts = opts || {};
   const a = state.qAssignments.find(x=>x.id===id);
-  const area = document.getElementById('detailArea') || document.getElementById('main');
-  const readonly = readOnlyCoachView;
+  const area = opts.container || document.getElementById('detailArea') || document.getElementById('main');
+  const preview = !!opts.preview;
+  const readonly = readOnlyCoachView && !preview;
   const html = `
     <div class="card">
       <div class="card-tab ${a.status==='completada'?'tab-sage':'tab-ember'}"></div>
@@ -2201,8 +2346,7 @@ function viewQAssignment(id, readOnlyCoachView){
     </div>
   `;
   area.innerHTML = html;
-  area.scrollIntoView({behavior:'smooth', block:'nearest'});
-  wireCoachItemActions(area);
+  if(!preview){ area.scrollIntoView({behavior:'smooth', block:'nearest'}); wireCoachItemActions(area); }
   const itemsArea = area.querySelector('#qItemsArea');
   itemsArea.innerHTML = a.questions.map(q=>{
     const val = a.responses[q.id];
@@ -2222,6 +2366,7 @@ function viewQAssignment(id, readOnlyCoachView){
     }
     return `<div class="field"><label>${esc(q.text)}</label><textarea data-resp="${q.id}">${esc(val??'')}</textarea></div>`;
   }).join('');
+  if(preview){ lockPreview(area); return; }
   if(!readonly && a.status!=='completada'){
     itemsArea.querySelectorAll('[data-scale]').forEach(wrap=>{
       const qid = wrap.getAttribute('data-scale');
