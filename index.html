@@ -262,12 +262,12 @@ async function loadKey(key, fallback){
     return data ? data.value : fallback;
   }catch(e){ console.error(e); return fallback; }
 }
-async function saveKey(key, value){
+async function saveKey(key, value, silent){
   try{
     const { error } = await sb.from('app_data').upsert({ coach_id: view.coachId, key, value }, { onConflict: 'coach_id,key' });
-    if(error){ toast('No se pudo guardar. Revisa tu conexión.'); console.error(error); return null; }
+    if(error){ if(!silent) toast('No se pudo guardar. Revisa tu conexión.'); console.error(error); return null; }
     return true;
-  }catch(e){ toast('Error al guardar.'); console.error(e); return null; }
+  }catch(e){ if(!silent) toast('Error al guardar.'); console.error(e); return null; }
 }
 async function loadAthletes(){
   try{
@@ -338,12 +338,12 @@ function defaultQuestionnaires(){
   ];
 }
 
-async function persist(key){
+async function persist(key, silent){
   const map = {
     exercises:'exercises', sessionTemplates:'session-templates',
     qTemplates:'questionnaire-templates', assignments:'assignments', qAssignments:'questionnaire-assignments'
   };
-  await saveKey(map[key], state[key]);
+  return await saveKey(map[key], state[key], silent);
 }
 
 function toast(msg){
@@ -1512,11 +1512,23 @@ function viewSessionAssignment(id, readOnlyCoachView){
   });
   const completeBtn = area.querySelector('#completeBtn');
   if(completeBtn){
-    completeBtn.addEventListener('click', ()=>{
+    completeBtn.addEventListener('click', async ()=>{
+      // Guardamos los valores anteriores por si el guardado falla y hay que deshacer
+      const prev = { rpe:a.rpe, athleteNotes:a.athleteNotes, status:a.status, completedAt:a.completedAt };
       a.rpe = area.querySelector('#f_rpe').value ? Number(area.querySelector('#f_rpe').value) : null;
       a.athleteNotes = area.querySelector('#f_notes').value.trim();
       a.status = 'completada'; a.completedAt = new Date().toISOString();
-      persist('assignments'); toast('Sesión guardada.'); render();
+      const label = completeBtn.textContent;
+      completeBtn.disabled = true; completeBtn.textContent = 'Guardando...';
+      const ok = await persist('assignments', true);
+      if(!ok){
+        // No se marca como completada; el formulario conserva lo escrito para reintentar
+        Object.assign(a, prev);
+        completeBtn.disabled = false; completeBtn.textContent = label;
+        toast('No se ha podido guardar. Revisa tu conexión e inténtalo de nuevo.');
+        return;
+      }
+      toast('Sesión guardada.'); render();
     });
   }
 }
@@ -1571,11 +1583,23 @@ function viewQAssignment(id, readOnlyCoachView){
     itemsArea.querySelectorAll('[data-resp]').forEach(inp=>{
       inp.addEventListener('input', ()=>{ a.responses[inp.getAttribute('data-resp')] = inp.value; });
     });
-    area.querySelector('#sendBtn').addEventListener('click', ()=>{
+    const sendBtn = area.querySelector('#sendBtn');
+    sendBtn.addEventListener('click', async ()=>{
       const missing = a.questions.some(q=> q.type!=='texto' && (a.responses[q.id]===undefined || a.responses[q.id]===''));
       if(missing){ toast('Responde todas las preguntas antes de enviar.'); return; }
+      const prev = { status:a.status, completedAt:a.completedAt };
       a.status='completada'; a.completedAt=new Date().toISOString();
-      persist('qAssignments'); toast('Respuestas enviadas.'); render();
+      const label = sendBtn.textContent;
+      sendBtn.disabled = true; sendBtn.textContent = 'Enviando...';
+      const ok = await persist('qAssignments', true);
+      if(!ok){
+        // Sigue pendiente; las respuestas ya marcadas se conservan para reintentar
+        Object.assign(a, prev);
+        sendBtn.disabled = false; sendBtn.textContent = label;
+        toast('No se han podido enviar las respuestas. Revisa tu conexión e inténtalo de nuevo.');
+        return;
+      }
+      toast('Respuestas enviadas.'); render();
     });
   }
 }
