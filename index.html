@@ -256,6 +256,20 @@
   .ex-row{display:grid;grid-template-columns:1.3fr .55fr .55fr .7fr .7fr 1fr 1fr auto;gap:6px;align-items:start;margin-bottom:6px;}
   @media(max-width:760px){.ex-row{grid-template-columns:1fr 1fr;}}
   .ex-row input{padding:6px 8px;font-size:12.5px;}
+  .ex-row input:disabled{opacity:.7;cursor:not-allowed;}
+  .ex-row-actions{display:flex;gap:2px;}
+  .modal:has(#blocksContainer){max-width:1080px;width:calc(100% - 32px);}
+  .ss-box{border:1px solid var(--yellow);border-left:4px solid var(--yellow);border-radius:var(--radius);padding:10px;margin-bottom:10px;background:rgba(226,0,26,0.06);}
+  .ss-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;font-size:12.5px;}
+  .ss-head strong{color:var(--yellow);font-size:13px;}
+  .ss-head label{display:flex;align-items:center;gap:6px;margin:0;color:var(--chalk-dim);font-size:12px;}
+  .ss-head input{width:90px;padding:5px 8px;font-size:12.5px;}
+  .ss-head input.ss-rounds{width:64px;}
+  .ss-tag{display:inline-block;background:var(--yellow);color:#FFFFFF;font-weight:700;font-size:10.5px;padding:1px 5px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .ex-search-wrap{display:flex;align-items:center;}
+  .ex-search-wrap .ex-search-input{flex:1;min-width:0;}
+  tr.ss-view-row td{color:var(--yellow);font-weight:600;font-size:12px;padding-top:10px;}
+  tr.ss-member td:first-child{border-left:3px solid var(--yellow);}
 
   .toast{position:fixed;bottom:20px;right:20px;background:var(--bg-panel-2);border:1px solid var(--line-strong);padding:10px 16px;border-radius:var(--radius);font-size:13px;z-index:100;box-shadow:none;}
   .scale-opts{display:flex;gap:6px;flex-wrap:wrap;}
@@ -401,6 +415,49 @@ function migrateBlocks(blocks){
     id: b.id || uid('exx'), exerciseName:b.exerciseName||'', sets:b.sets||'', reps:b.reps||'',
     load:b.load||'', rest:b.rest||'', videoUrl:b.videoUrl||'', notes:b.notes||'', done: b.done||false
   }))}];
+}
+
+/* ==================== SUPERSERIES ==================== */
+// Dentro de un bloque, los ejercicios siguen en una lista plana (blk.exercises).
+// Una superserie es {id, rounds, rest} en blk.supersets y cada ejercicio que la
+// forma lleva supersetId. Las series de esos ejercicios = rondas de la superserie.
+function normalizeSupersets(blk){
+  blk.exercises = blk.exercises || [];
+  const used = new Set(blk.exercises.map(e=>e.supersetId).filter(Boolean));
+  blk.supersets = (blk.supersets||[]).filter(ss=>used.has(ss.id));
+  const valid = new Set(blk.supersets.map(ss=>ss.id));
+  blk.exercises.forEach(e=>{ if(e.supersetId && !valid.has(e.supersetId)) leaveSuperset(e); });
+  // Una superserie de un solo ejercicio deja de serlo
+  blk.supersets = blk.supersets.filter(ss=>{
+    const members = blk.exercises.filter(e=>e.supersetId===ss.id);
+    if(members.length<2){ members.forEach(leaveSuperset); return false; }
+    return true;
+  });
+  // Los ejercicios de una superserie van seguidos, en el orden en que aparecen
+  const ordered = [];
+  blk.exercises.forEach(e=>{
+    if(ordered.includes(e)) return;
+    if(e.supersetId) blk.exercises.filter(x=>x.supersetId===e.supersetId).forEach(x=>ordered.push(x));
+    else ordered.push(e);
+  });
+  blk.exercises = ordered;
+  blk.supersets.forEach(ss=>blk.exercises.filter(e=>e.supersetId===ss.id).forEach(e=>{ e.sets = ss.rounds==null ? '' : String(ss.rounds); }));
+  return blk;
+}
+// Entrar / salir de una superserie: al salir recupera las series que tenía antes
+function joinSuperset(e, ssId){ if(!e.supersetId && e.prevSets===undefined) e.prevSets = e.sets; e.supersetId = ssId; }
+function leaveSuperset(e){ delete e.supersetId; if(e.prevSets!==undefined){ e.sets = e.prevSets; delete e.prevSets; } }
+// Devuelve los ejercicios del bloque en tramos: {single: ex} o {ss, letter, exs:[...]}
+function blockSegments(blk){
+  const segs = []; let n = 0;
+  (blk.exercises||[]).forEach(e=>{
+    const ss = e.supersetId && (blk.supersets||[]).find(x=>x.id===e.supersetId);
+    if(!ss){ segs.push({single:e}); return; }
+    const last = segs[segs.length-1];
+    if(last && last.ss===ss) last.exs.push(e);
+    else segs.push({ss, letter:String.fromCharCode(65+(n++)), exs:[e]});
+  });
+  return segs;
 }
 
 async function loadAll(){
@@ -1250,7 +1307,10 @@ function sessionForm(id, onSaved, opts){
             <span>Ejercicio</span><span>Series</span><span>Reps</span><span>Carga</span><span>Descanso</span><span>Vídeo</span><span>Notas</span><span></span>
           </div>
           <div class="ex-rows" data-exrows="${blk.id}"></div>
-          <button class="btn btn-sm" type="button" data-addex="${blk.id}">+ Añadir ejercicio</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-sm" type="button" data-addex="${blk.id}">+ Añadir ejercicio</button>
+            <button class="btn btn-sm" type="button" data-addss="${blk.id}">+ Añadir superserie</button>
+          </div>
         </div>
       `).join('') || '<p class="meta" style="margin-bottom:10px;">Todavía no has añadido ningún bloque.</p>';
       s.blocks.forEach(blk=>{
@@ -1267,26 +1327,101 @@ function sessionForm(id, onSaved, opts){
       c.querySelectorAll('[data-addex]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           const blk = s.blocks.find(b=>b.id===btn.getAttribute('data-addex'));
-          blk.exercises.push({id:uid('exx'), exerciseName:'', sets:'', reps:'', load:'', rest:'', videoUrl:'', notes:''});
+          blk.exercises.push(newEx());
+          renderBlocksUI();
+        });
+      });
+      c.querySelectorAll('[data-addss]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const blk = s.blocks.find(b=>b.id===btn.getAttribute('data-addss'));
+          const ss = {id:uid('ss'), rounds:3, rest:''};
+          blk.supersets = [...(blk.supersets||[]), ss];
+          blk.exercises.push(newEx({supersetId:ss.id}), newEx({supersetId:ss.id}));
           renderBlocksUI();
         });
       });
     }
-    function renderExRows(wrap, blk){
-      wrap.innerHTML = blk.exercises.map(ex=>`
-        <div class="ex-row" data-exid="${ex.id}">
+    function newEx(extra){ return Object.assign({id:uid('exx'), exerciseName:'', sets:'', reps:'', load:'', rest:'', videoUrl:'', notes:''}, extra||{}); }
+    function exRowHtml(ex, label, locked, canLink){
+      return `<div class="ex-row" data-exid="${ex.id}">
           <div class="ex-search-wrap">
+            ${label ? `<span class="ss-tag">${label}</span>` : ''}
             <input type="text" class="ex-search-input" value="${esc(ex.exerciseName)}" placeholder="Buscar ejercicio…" autocomplete="off">
             <div class="ex-dropdown" hidden></div>
           </div>
-          <input type="text" placeholder="series" value="${esc(ex.sets)}" data-f="sets">
+          <input type="text" placeholder="series" value="${esc(ex.sets)}" data-f="sets" ${locked?'disabled title="Las series las marcan las rondas de la superserie"':''}>
           <input type="text" placeholder="reps" value="${esc(ex.reps)}" data-f="reps">
           <input type="text" placeholder="carga" value="${esc(ex.load)}" data-f="load">
           <input type="text" placeholder="descanso" value="${esc(ex.rest)}" data-f="rest">
           <input type="text" placeholder="enlace vídeo" value="${esc(ex.videoUrl)}" data-f="videoUrl">
           <input type="text" placeholder="notas" value="${esc(ex.notes)}" data-f="notes">
-          <button class="btn btn-ghost btn-sm" type="button" data-rmex="${ex.id}">✕</button>
-        </div>`).join('') || '<p class="meta" style="font-size:12px;margin-bottom:8px;">Sin ejercicios en este bloque todavía.</p>';
+          <div class="ex-row-actions">
+            ${canLink ? `<button class="btn btn-ghost btn-sm" type="button" data-linkex="${ex.id}" title="Unir con el ejercicio de abajo en una superserie">⛓</button>` : ''}
+            ${ex.supersetId ? `<button class="btn btn-ghost btn-sm" type="button" data-outex="${ex.id}" title="Sacar de la superserie">⇱</button>` : ''}
+            <button class="btn btn-ghost btn-sm" type="button" data-rmex="${ex.id}" title="Eliminar ejercicio">✕</button>
+          </div>
+        </div>`;
+    }
+    function renderExRows(wrap, blk){
+      normalizeSupersets(blk);
+      const exs = blk.exercises;
+      const canLink = ex=>{ const i = exs.indexOf(ex); const nx = exs[i+1]; return !!nx && !(ex.supersetId && nx.supersetId===ex.supersetId); };
+      wrap.innerHTML = blockSegments(blk).map(seg=>{
+        if(seg.single) return exRowHtml(seg.single, '', false, canLink(seg.single));
+        return `<div class="ss-box" data-ssid="${seg.ss.id}">
+          <div class="ss-head">
+            <strong>Superserie ${seg.letter}</strong>
+            <label>Rondas <input type="number" min="1" class="ss-rounds" value="${esc(seg.ss.rounds)}"></label>
+            <label>Descanso entre rondas <input type="text" class="ss-rest" value="${esc(seg.ss.rest)}" placeholder="p. ej. 90 s"></label>
+            <button class="btn btn-ghost btn-sm" type="button" data-unss="${seg.ss.id}">Deshacer superserie</button>
+          </div>
+          ${seg.exs.map((ex,i)=>exRowHtml(ex, seg.letter+(i+1), true, canLink(ex))).join('')}
+          <button class="btn btn-sm" type="button" data-addtoss="${seg.ss.id}">+ Ejercicio a la superserie</button>
+        </div>`;
+      }).join('') || '<p class="meta" style="font-size:12px;margin-bottom:8px;">Sin ejercicios en este bloque todavía.</p>';
+      // Superseries: rondas (se copian a las series de cada ejercicio), descanso, deshacer, añadir
+      (blk.supersets||[]).forEach(ss=>{
+        const box = wrap.querySelector(`[data-ssid="${ss.id}"]`); if(!box) return;
+        box.querySelector('.ss-rounds').addEventListener('input', ev=>{
+          ss.rounds = ev.target.value;
+          exs.filter(e=>e.supersetId===ss.id).forEach(e=>{
+            e.sets = String(ss.rounds);
+            const inp = box.querySelector(`[data-exid="${e.id}"] [data-f="sets"]`); if(inp) inp.value = e.sets;
+          });
+        });
+        box.querySelector('.ss-rest').addEventListener('input', ev=>{ ss.rest = ev.target.value; });
+        box.querySelector('[data-unss]').addEventListener('click', ()=>{
+          exs.filter(e=>e.supersetId===ss.id).forEach(leaveSuperset);
+          renderExRows(wrap, blk);
+        });
+        box.querySelector('[data-addtoss]').addEventListener('click', ()=>{
+          const lastIdx = exs.map(e=>e.supersetId).lastIndexOf(ss.id);
+          exs.splice(lastIdx+1, 0, newEx({supersetId:ss.id}));
+          renderExRows(wrap, blk);
+        });
+      });
+      wrap.querySelectorAll('[data-linkex]').forEach(btn=>btn.addEventListener('click', ()=>{
+        const ex = exs.find(e=>e.id===btn.getAttribute('data-linkex'));
+        const nx = exs[exs.indexOf(ex)+1]; if(!nx) return;
+        if(ex.supersetId && nx.supersetId){ exs.filter(e=>e.supersetId===nx.supersetId).forEach(e=>{ e.supersetId = ex.supersetId; }); }
+        else if(ex.supersetId){ joinSuperset(nx, ex.supersetId); }
+        else if(nx.supersetId){ joinSuperset(ex, nx.supersetId); }
+        else {
+          const ss = {id:uid('ss'), rounds: parseInt(ex.sets,10) || parseInt(nx.sets,10) || 3, rest:''};
+          blk.supersets = [...(blk.supersets||[]), ss];
+          joinSuperset(ex, ss.id); joinSuperset(nx, ss.id);
+        }
+        renderExRows(wrap, blk);
+      }));
+      wrap.querySelectorAll('[data-outex]').forEach(btn=>btn.addEventListener('click', ()=>{
+        const ex = exs.find(e=>e.id===btn.getAttribute('data-outex'));
+        const sid = ex.supersetId; leaveSuperset(ex);
+        // Se coloca justo después de su antigua superserie
+        exs.splice(exs.indexOf(ex),1);
+        const lastIdx = exs.map(e=>e.supersetId).lastIndexOf(sid);
+        exs.splice(lastIdx>=0 ? lastIdx+1 : exs.length, 0, ex);
+        renderExRows(wrap, blk);
+      }));
       blk.exercises.forEach(ex=>{
         const row = wrap.querySelector(`[data-exid="${ex.id}"]`);
         if(!row) return;
@@ -1294,7 +1429,7 @@ function sessionForm(id, onSaved, opts){
           inp.addEventListener('input', ()=>{ ex[inp.getAttribute('data-f')] = inp.value; });
         });
         row.querySelector('[data-rmex]').addEventListener('click', ()=>{
-          blk.exercises = blk.exercises.filter(x=>x.id!==ex.id);
+          blk.exercises.splice(blk.exercises.indexOf(ex), 1);
           renderExRows(wrap, blk);
         });
         wireExerciseSearch(row, ex);
@@ -1356,6 +1491,7 @@ function sessionForm(id, onSaved, opts){
       if(!name){ toast('Ponle un nombre a la sesión.'); return; }
       if(opts.mustDifferFrom && name.toLowerCase()===opts.mustDifferFrom.toLowerCase()){ toast('Ponle un nombre distinto al de la sesión original.'); return; }
       s.name=name; s.focus=body.querySelector('#f_focus').value.trim(); s.notes=body.querySelector('#f_notes').value.trim();
+      s.blocks.forEach(normalizeSupersets);
       const fld = readFolderSelect(body); if(fld!==undefined) s.folderId = fld;
       if(opts.onSave){
         saveBtn.disabled = true;
@@ -1755,6 +1891,7 @@ function assignForm(prefill){
             id:uid('asg'), athleteId, date, templateId:tpl.id, templateName:tpl.name, focus:tpl.focus,
             blocks: tpl.blocks.map(blk=>({
               id: blk.id, name: blk.name,
+              supersets: JSON.parse(JSON.stringify(blk.supersets||[])),
               exercises: (blk.exercises||[]).map(ex=>({...ex, done:false}))
             })),
             status:'pendiente', athleteNotes:'', rpe:null, completedAt:null
@@ -1895,13 +2032,17 @@ function viewSessionAssignment(id, readOnlyCoachView){
       ${blk.name? `<h4 style="font-size:13px;color:var(--chalk-dim);margin-bottom:6px;">${esc(blk.name)}</h4>` : ''}
       <table><thead><tr><th></th><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Carga</th><th>Descanso</th><th>Vídeo</th><th>Notas</th></tr></thead>
       <tbody>
-        ${(blk.exercises||[]).map(ex=>`<tr>
+        ${blockSegments(blk).map(seg=>{
+          const rows = seg.single ? [[seg.single,'']] : seg.exs.map((ex,i)=>[ex, seg.letter+(i+1)]);
+          const head = seg.single ? '' : `<tr class="ss-view-row"><td></td><td colspan="7">Superserie ${seg.letter} · ${esc(seg.ss.rounds)} ronda${String(seg.ss.rounds)==='1'?'':'s'}${seg.ss.rest? ' · descanso entre rondas: '+esc(seg.ss.rest):''}</td></tr>`;
+          return head + rows.map(([ex,label])=>`<tr class="${label?'ss-member':''}">
           <td>${readonly?'':`<input type="checkbox" ${ex.done?'checked':''} data-blkid="${blk.id}" data-exid="${ex.id}">`}</td>
-          <td>${esc(ex.exerciseName)}</td><td class="num">${esc(ex.sets)}</td><td class="num">${esc(ex.reps)}</td>
+          <td>${label?`<span class="ss-tag">${label}</span>`:''}${esc(ex.exerciseName)}</td><td class="num">${esc(ex.sets)}</td><td class="num">${esc(ex.reps)}</td>
           <td>${esc(ex.load)}</td><td>${esc(ex.rest)}</td>
           <td>${ex.videoUrl? `<button type="button" class="video-link" data-playvideo="${esc(normalizeUrl(ex.videoUrl))}" data-title="${esc(ex.exerciseName)}">▶ ver vídeo</button>` : '—'}</td>
           <td>${esc(ex.notes)}</td>
-        </tr>`).join('')}
+        </tr>`).join('');
+        }).join('')}
       </tbody></table>
     </div>
   `).join('');

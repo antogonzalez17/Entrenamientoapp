@@ -76,7 +76,10 @@ varios entrenadores independientes, cada uno con su propio equipo.
   baja), biblioteca de ejercicios (con carpetas, categorías/etiquetas, filtro
   por etiquetas —deben tener todas las marcadas— y vídeo de YouTube/Vimeo con
   miniatura), creador de sesiones por bloques con nombre (cada bloque agrupa
-  varios ejercicios) organizadas en carpetas, cuestionarios personalizables,
+  varios ejercicios, que pueden agruparse en superseries: `blk.supersets`
+  = [{id, rounds, rest}] y cada ejercicio de la superserie lleva
+  `supersetId`; sus series = rondas de la superserie; etiquetas A1, A2…)
+  organizadas en carpetas, cuestionarios personalizables,
   "Planificación" (antes "Calendario"): vista Semana y vista Mes, botones
   ‹ Hoy ›, el día actual resaltado en rojo; al entrar siempre abre la
   semana/mes actual. Al pulsar un día: "Añadir sesión" o "Añadir
