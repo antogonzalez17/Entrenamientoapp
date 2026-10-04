@@ -93,7 +93,10 @@ varios entrenadores independientes, cada uno con su propio equipo.
   ("Modificar esta sesión y guardarla con otro nombre": nueva plantilla en
   Sesiones). Lo asignado a un día se puede editar (sesiones; opcionalmente
   aplicando los cambios también a la plantilla) y quitar (sesiones y
-  cuestionarios; borra la fila de `athlete_items`). Desde "Deportistas", botón "Planificación" que abre
+  cuestionarios; borra la fila de `athlete_items`). Al pulsar algo
+  asignado se abre una ficha (`assignmentCard`): fecha editable, resumen
+  (superseries desplegables) y botones Editar / Previsualizar (vista del
+  deportista bloqueada) / Asignar a otro (copia sin lo marcado) / Eliminar. Desde "Deportistas", botón "Planificación" que abre
   la planificación filtrada por ese deportista. Seguimiento de lo completado, sección
   "Compartir" con los dos enlaces de invitación.
 - Deportista: su semana con lo asignado, detalle de sesión (marcar
