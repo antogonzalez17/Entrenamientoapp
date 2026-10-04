@@ -255,7 +255,8 @@
   .block-editor-head input{flex:1;font-weight:600;}
   .ex-row{display:grid;grid-template-columns:1.3fr .55fr .55fr .7fr .7fr 1fr 1fr auto;gap:6px;align-items:start;margin-bottom:6px;}
   @media(max-width:760px){.ex-row{grid-template-columns:1fr 1fr;}}
-  .ex-row input{padding:6px 8px;font-size:12.5px;}
+  .ex-row input, .ex-row select{padding:6px 8px;font-size:12.5px;}
+  .ss-head select{width:auto;padding:5px 8px;font-size:12.5px;}
   .ex-row input:disabled{opacity:.7;cursor:not-allowed;}
   .ex-row-actions{display:flex;gap:2px;}
   .ex-select{width:20px;height:20px;flex:none;margin:0 8px 0 0;accent-color:var(--yellow);cursor:pointer;}
@@ -455,6 +456,14 @@ function normalizeSupersets(blk){
   // Series = rondas, salvo en los ejercicios a los que se les ha cambiado a mano (setsCustom)
   blk.supersets.forEach(ss=>blk.exercises.filter(e=>e.supersetId===ss.id && !e.setsCustom).forEach(e=>{ e.sets = ss.rounds==null ? '' : String(ss.rounds); }));
   return blk;
+}
+// Opciones del desplegable de descanso
+const REST_OPTIONS = ['0s','10s','15s','20s','25s','30s','35s','40s','45s','50s','55s','60s','90s','2min','3min','4min','5min','6min'];
+function restSelectHtml(value, attrs){
+  const v = (value||'').trim();
+  // Si había un descanso escrito a mano que no está en la lista, se conserva como opción
+  const extra = v && !REST_OPTIONS.includes(v) ? `<option value="${esc(v)}" selected>${esc(v)}</option>` : '';
+  return `<select ${attrs}><option value="">descanso</option>${extra}${REST_OPTIONS.map(o=>`<option value="${o}" ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
 }
 // Entrar / salir de una superserie: al salir recupera las series que tenía antes
 function joinSuperset(e, ssId){ if(!e.supersetId && e.prevSets===undefined) e.prevSets = e.sets; e.supersetId = ssId; delete e.setsCustom; }
@@ -1367,7 +1376,7 @@ function sessionForm(id, onSaved, opts){
           <input type="text" placeholder="series" value="${esc(ex.sets)}" data-f="sets" ${ex.supersetId?'title="Se rellena con las rondas de la superserie; puedes cambiarlo"':''}>
           <input type="text" placeholder="reps" value="${esc(ex.reps)}" data-f="reps">
           <input type="text" placeholder="carga" value="${esc(ex.load)}" data-f="load">
-          <input type="text" placeholder="descanso" value="${esc(ex.rest)}" data-f="rest">
+          ${restSelectHtml(ex.rest, 'data-f="rest" aria-label="Descanso"')}
           <input type="text" placeholder="enlace vídeo" value="${esc(ex.videoUrl)}" data-f="videoUrl">
           <input type="text" placeholder="notas" value="${esc(ex.notes)}" data-f="notes">
           <div class="ex-row-actions">
@@ -1401,7 +1410,7 @@ function sessionForm(id, onSaved, opts){
           <div class="ss-head">
             <strong>Superserie ${seg.letter}</strong>
             <label>Rondas <input type="number" min="1" class="ss-rounds" value="${esc(seg.ss.rounds)}"></label>
-            <label>Descanso entre rondas <input type="text" class="ss-rest" value="${esc(seg.ss.rest)}" placeholder="p. ej. 90 s"></label>
+            <label>Descanso entre rondas ${restSelectHtml(seg.ss.rest, 'class="ss-rest"')}</label>
             <button class="btn btn-ghost btn-sm" type="button" data-unss="${seg.ss.id}">Deshacer superserie</button>
           </div>
           ${seg.exs.map((ex,i)=>exRowHtml(ex, seg.letter+(i+1))).join('')}
@@ -1420,7 +1429,7 @@ function sessionForm(id, onSaved, opts){
             const inp = box.querySelector(`[data-exid="${e.id}"] [data-f="sets"]`); if(inp) inp.value = e.sets;
           });
         });
-        box.querySelector('.ss-rest').addEventListener('input', ev=>{ ss.rest = ev.target.value; });
+        box.querySelector('.ss-rest').addEventListener('change', ev=>{ ss.rest = ev.target.value; });
         box.querySelector('[data-unss]').addEventListener('click', ()=>{
           exs.filter(e=>e.supersetId===ss.id).forEach(leaveSuperset);
           renderExRows(wrap, blk);
@@ -1481,7 +1490,7 @@ function sessionForm(id, onSaved, opts){
         const row = wrap.querySelector(`[data-exid="${ex.id}"]`);
         if(!row) return;
         row.querySelectorAll('[data-f]').forEach(inp=>{
-          inp.addEventListener('input', ()=>{
+          inp.addEventListener(inp.tagName==='SELECT' ? 'change' : 'input', ()=>{
             const f = inp.getAttribute('data-f');
             ex[f] = inp.value;
             // Series cambiadas a mano dentro de una superserie: se respetan hasta que vuelvas a cambiar las rondas
