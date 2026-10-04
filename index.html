@@ -253,8 +253,9 @@ const APP_SHELL = document.getElementById('app').innerHTML;
 const APP_URL = location.origin + location.pathname;
 
 /* ==================== STORAGE HELPERS ==================== */
-// Todo el contenido de un entrenador (ejercicios, sesiones, cuestionarios,
-// asignaciones) vive en la tabla app_data, separado por coach_id.
+// La biblioteca de un entrenador (ejercicios, plantillas de sesión y de
+// cuestionario) vive en la tabla app_data, separada por coach_id.
+// Lo asignado a cada deportista va aparte, en athlete_items (ver más abajo).
 async function loadKey(key, fallback){
   try{
     const { data, error } = await sb.from('app_data').select('value').eq('coach_id', view.coachId).eq('key', key).maybeSingle();
@@ -268,6 +269,40 @@ async function saveKey(key, value, silent){
     if(error){ if(!silent) toast('No se pudo guardar. Revisa tu conexión.'); console.error(error); return null; }
     return true;
   }catch(e){ if(!silent) toast('Error al guardar.'); console.error(e); return null; }
+}
+// Cada sesión o cuestionario asignado es una fila propia en la tabla
+// athlete_items. Así Supabase solo deja a cada deportista leer y modificar
+// lo suyo, y dos guardados a la vez ya no se pisan entre sí.
+async function loadItems(){
+  const out = { session:[], questionnaire:[] };
+  const col = view.role==='coach' ? 'coach_id' : 'athlete_id';
+  const val = view.role==='coach' ? view.coachId : view.athleteId;
+  const PAGE = 1000; // Supabase devuelve como máximo 1000 filas por consulta
+  try{
+    for(let from=0; ; from+=PAGE){
+      const { data, error } = await sb.from('athlete_items').select('kind,data').eq(col, val).order('id').range(from, from+PAGE-1);
+      if(error){ console.error(error); toast('No se pudieron cargar las sesiones asignadas.'); break; }
+      data.forEach(r=>{ if(out[r.kind]) out[r.kind].push(r.data); });
+      if(data.length < PAGE) break;
+    }
+  }catch(e){ console.error(e); toast('No se pudieron cargar las sesiones asignadas.'); }
+  return out;
+}
+async function insertItems(kind, items){
+  const rows = items.map(a=>({ id:a.id, coach_id:view.coachId, athlete_id:a.athleteId, kind, data:a }));
+  try{
+    const { error } = await sb.from('athlete_items').insert(rows);
+    if(error){ console.error(error); return false; }
+    return true;
+  }catch(e){ console.error(e); return false; }
+}
+async function updateItem(a){
+  try{
+    const { data, error } = await sb.from('athlete_items').update({ data:a, updated_at:new Date().toISOString() }).eq('id', a.id).select('id');
+    // Si no vuelve ninguna fila es que no se ha guardado (sin permiso o no existe)
+    if(error || !data || !data.length){ console.error(error || 'athlete_items: fila no actualizada'); return false; }
+    return true;
+  }catch(e){ console.error(e); return false; }
 }
 async function loadAthletes(){
   try{
@@ -307,14 +342,14 @@ function migrateBlocks(blocks){
 }
 
 async function loadAll(){
-  const [exercises, sessionTemplates, qTemplates, assignments, qAssignments, athletes] = await Promise.all([
+  const [exercises, sessionTemplates, qTemplates, items, athletes] = await Promise.all([
     loadKey('exercises', []),
     loadKey('session-templates', []),
     loadKey('questionnaire-templates', defaultQuestionnaires()),
-    loadKey('assignments', []),
-    loadKey('questionnaire-assignments', []),
+    loadItems(),
     loadAthletes()
   ]);
+  const assignments = items.session, qAssignments = items.questionnaire;
   const migratedExercises = exercises.map(e=>({...e, categories: Array.isArray(e.categories) ? e.categories : (e.category ? [e.category] : [])}));
   const migratedSessionTemplates = sessionTemplates.map(s=>({...s, blocks: migrateBlocks(s.blocks)}));
   const migratedAssignments = assignments.map(a=>({...a, blocks: migrateBlocks(a.blocks)}));
@@ -341,7 +376,7 @@ function defaultQuestionnaires(){
 async function persist(key, silent){
   const map = {
     exercises:'exercises', sessionTemplates:'session-templates',
-    qTemplates:'questionnaire-templates', assignments:'assignments', qAssignments:'questionnaire-assignments'
+    qTemplates:'questionnaire-templates'
   };
   return await saveKey(map[key], state[key], silent);
 }
@@ -1332,7 +1367,8 @@ function assignForm(prefill){
       sessionForm(null, (newTpl)=>{ assignForm({date, athIds, sessId: newTpl.id}); });
     });
     body.querySelector('#cancelBtn').addEventListener('click', closeModal);
-    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+    const assignBtn = body.querySelector('#saveBtn');
+    assignBtn.addEventListener('click', async ()=>{
       const date = body.querySelector('#f_date').value;
       const athIds = Array.from(body.querySelectorAll('.ath-check:checked')).map(c=>c.value);
       const sessId = body.querySelector('#f_sess').value;
@@ -1340,10 +1376,11 @@ function assignForm(prefill){
       if(!date){ toast('Elige una fecha.'); return; }
       if(!athIds.length){ toast('Elige al menos un deportista.'); return; }
       if(!sessId && !qId){ toast('Elige una sesión o un cuestionario.'); return; }
+      const newSessions = [], newQs = [];
       athIds.forEach(athleteId=>{
         if(sessId){
           const tpl = state.sessionTemplates.find(s=>s.id===sessId);
-          state.assignments.push({
+          newSessions.push({
             id:uid('asg'), athleteId, date, templateId:tpl.id, templateName:tpl.name, focus:tpl.focus,
             blocks: tpl.blocks.map(blk=>({
               id: blk.id, name: blk.name,
@@ -1354,14 +1391,25 @@ function assignForm(prefill){
         }
         if(qId){
           const tpl = state.qTemplates.find(q=>q.id===qId);
-          state.qAssignments.push({
+          newQs.push({
             id:uid('qasg'), athleteId, date, templateId:tpl.id, templateName:tpl.name, type:tpl.type,
             questions: JSON.parse(JSON.stringify(tpl.questions)), responses:{}, status:'pendiente', completedAt:null
           });
         }
       });
-      if(sessId) persist('assignments');
-      if(qId) persist('qAssignments');
+      assignBtn.disabled = true; assignBtn.textContent = 'Asignando...';
+      const okS = !newSessions.length || await insertItems('session', newSessions);
+      const okQ = !newQs.length || await insertItems('questionnaire', newQs);
+      if(okS) state.assignments.push(...newSessions);
+      if(okQ) state.qAssignments.push(...newQs);
+      if(!okS || !okQ){
+        assignBtn.disabled = false; assignBtn.textContent = 'Asignar';
+        const partial = newSessions.length && newQs.length && (okS || okQ);
+        toast(partial
+          ? 'Solo se ha asignado una parte (' + (okS ? 'la sesión' : 'el cuestionario') + '). Revisa tu conexión e inténtalo de nuevo con lo que falta.'
+          : 'No se ha podido asignar. Revisa tu conexión e inténtalo de nuevo.');
+        render(); return;
+      }
       toast('Asignado correctamente.');
       closeModal(); render();
     });
@@ -1502,7 +1550,12 @@ function viewSessionAssignment(id, readOnlyCoachView){
     cb.addEventListener('change', ()=>{
       const blk = a.blocks.find(b=>b.id===cb.getAttribute('data-blkid'));
       const ex = blk.exercises.find(x=>x.id===cb.getAttribute('data-exid'));
-      ex.done = cb.checked; persist('assignments');
+      ex.done = cb.checked;
+      updateItem(a).then(ok=>{
+        if(ok) return;
+        ex.done = !cb.checked; cb.checked = ex.done;
+        toast('No se pudo guardar. Revisa tu conexión.');
+      });
     });
   });
   area.querySelectorAll('[data-playvideo]').forEach(btn=>{
@@ -1520,7 +1573,7 @@ function viewSessionAssignment(id, readOnlyCoachView){
       a.status = 'completada'; a.completedAt = new Date().toISOString();
       const label = completeBtn.textContent;
       completeBtn.disabled = true; completeBtn.textContent = 'Guardando...';
-      const ok = await persist('assignments', true);
+      const ok = await updateItem(a);
       if(!ok){
         // No se marca como completada; el formulario conserva lo escrito para reintentar
         Object.assign(a, prev);
@@ -1591,7 +1644,7 @@ function viewQAssignment(id, readOnlyCoachView){
       a.status='completada'; a.completedAt=new Date().toISOString();
       const label = sendBtn.textContent;
       sendBtn.disabled = true; sendBtn.textContent = 'Enviando...';
-      const ok = await persist('qAssignments', true);
+      const ok = await updateItem(a);
       if(!ok){
         // Sigue pendiente; las respuestas ya marcadas se conservan para reintentar
         Object.assign(a, prev);

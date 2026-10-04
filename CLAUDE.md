@@ -23,15 +23,26 @@ varios entrenadores independientes, cada uno con su propio equipo.
   Columnas: `id` (= auth.users.id), `role` ('coach'|'athlete'), `coach_id`
   (a qué entrenador pertenece, null si es el propio entrenador), `name`,
   `email`, `sport`, `phone`, `notes`.
-- `app_data`: todo el contenido de cada entrenador (ejercicios, plantillas
-  de sesión, cuestionarios, asignaciones) guardado como JSON en una tabla
-  clave-valor, separado por `coach_id`. Claves usadas: `exercises`,
-  `session-templates`, `questionnaire-templates`, `assignments`,
-  `questionnaire-assignments`.
-- RLS activado en ambas tablas: un entrenador solo ve/edita su propio
-  espacio; un deportista solo ve el de su entrenador y solo puede
-  actualizar `assignments` y `questionnaire-assignments` (para marcar
-  sesiones completadas y responder cuestionarios).
+- `app_data`: la biblioteca de cada entrenador (ejercicios, plantillas de
+  sesión y de cuestionario) guardada como JSON en una tabla clave-valor,
+  separada por `coach_id`. Claves usadas: `exercises`, `session-templates`,
+  `questionnaire-templates`. (Las claves antiguas `assignments` y
+  `questionnaire-assignments` siguen ahí solo como copia de seguridad; la
+  app ya no las usa.)
+- `athlete_items`: cada sesión o cuestionario asignado es una fila propia.
+  Columnas: `id`, `coach_id`, `athlete_id`, `kind` ('session'|'questionnaire'),
+  `data` (el objeto completo en JSON), `updated_at`. La app guarda fila a
+  fila (insert al asignar, update al completar), nunca reescribe todo.
+- RLS activado en todas las tablas:
+  - `app_data`: el entrenador lee/escribe su espacio; el deportista solo
+    puede leer la biblioteca de su entrenador (no puede escribir).
+  - `athlete_items`: el entrenador ve/modifica todo lo de su equipo y solo
+    puede asignar a deportistas suyos; el deportista solo ve y actualiza
+    sus propias filas (no puede crear ni borrar).
+  - `profiles`: cada uno ve su perfil; el entrenador, también los de su
+    equipo. Un deportista no ve las fichas de sus compañeros.
+- Los cambios de base de datos se guardan como `.sql` en la carpeta
+  `supabase/` y se ejecutan a mano en el SQL Editor de Supabase.
 
 ## Cómo funciona el acceso (sin paneles de admin)
 - No hay un panel para "añadir deportistas" manualmente: se registran
