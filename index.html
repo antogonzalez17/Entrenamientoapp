@@ -181,6 +181,18 @@
   .day-item:hover{border-color:var(--chalk-faint);}
   .day-item .t{font-weight:600;display:block;margin-bottom:2px;}
   .day-item.is-q{border-left:3px solid var(--chalk-dim);}
+  .day-item-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .item-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  /* Carpetas */
+  .folder-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .folder-chip{border:1px solid var(--line-strong);background:var(--bg-panel);color:var(--chalk);padding:7px 12px;border-radius:var(--radius);font-size:13px;cursor:pointer;}
+  .folder-chip span{color:var(--chalk-faint);font-size:11.5px;margin-left:4px;}
+  .folder-chip.selected{border-color:var(--yellow);background:var(--yellow-dim);}
+  .folder-chip.selected span{color:var(--chalk-dim);}
+  .folder-chip.folder-new{border-style:dashed;color:var(--chalk-dim);}
+  .folder-actions{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .tag-filter-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+  .tag-count{opacity:.7;font-size:11px;margin-left:2px;}
   .day-item:not(.is-q){border-left:3px solid var(--yellow);}
   .day-col.is-today{border-color:var(--yellow);}
   .day-head-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;}
@@ -343,6 +355,13 @@ async function updateItem(a){
     return true;
   }catch(e){ console.error(e); return false; }
 }
+async function deleteItem(id){
+  try{
+    const { data, error } = await sb.from('athlete_items').delete().eq('id', id).select('id');
+    if(error || !data || !data.length){ console.error(error || 'athlete_items: fila no borrada'); return false; }
+    return true;
+  }catch(e){ console.error(e); return false; }
+}
 async function loadAthletes(){
   try{
     const { data, error } = await sb.from('profiles').select('*').eq('role','athlete').eq('coach_id', view.coachId).order('name');
@@ -357,6 +376,8 @@ let state = {
   exercises: [],
   sessionTemplates: [],
   qTemplates: [],
+  exerciseFolders: [],
+  sessionFolders: [],
   assignments: [],
   qAssignments: []
 };
@@ -383,18 +404,20 @@ function migrateBlocks(blocks){
 }
 
 async function loadAll(){
-  const [exercises, sessionTemplates, qTemplates, items, athletes] = await Promise.all([
+  const [exercises, sessionTemplates, qTemplates, items, athletes, exerciseFolders, sessionFolders] = await Promise.all([
     loadKey('exercises', []),
     loadKey('session-templates', []),
     loadKey('questionnaire-templates', defaultQuestionnaires()),
     loadItems(),
-    loadAthletes()
+    loadAthletes(),
+    view.role==='coach' ? loadKey('exercise-folders', []) : [],
+    view.role==='coach' ? loadKey('session-folders', []) : []
   ]);
   const assignments = items.session, qAssignments = items.questionnaire;
   const migratedExercises = exercises.map(e=>({...e, categories: Array.isArray(e.categories) ? e.categories : (e.category ? [e.category] : [])}));
   const migratedSessionTemplates = sessionTemplates.map(s=>({...s, blocks: migrateBlocks(s.blocks)}));
   const migratedAssignments = assignments.map(a=>({...a, blocks: migrateBlocks(a.blocks)}));
-  state = {athletes, exercises:migratedExercises, sessionTemplates:migratedSessionTemplates, qTemplates, assignments:migratedAssignments, qAssignments};
+  state = {athletes, exercises:migratedExercises, sessionTemplates:migratedSessionTemplates, qTemplates, exerciseFolders, sessionFolders, assignments:migratedAssignments, qAssignments};
   loaded = true;
 }
 
@@ -417,7 +440,8 @@ function defaultQuestionnaires(){
 async function persist(key, silent){
   const map = {
     exercises:'exercises', sessionTemplates:'session-templates',
-    qTemplates:'questionnaire-templates'
+    qTemplates:'questionnaire-templates',
+    exerciseFolders:'exercise-folders', sessionFolders:'session-folders'
   };
   return await saveKey(map[key], state[key], silent);
 }
@@ -935,6 +959,88 @@ function renderShare(main){
   });
 }
 
+/* ==================== CARPETAS (ejercicios y sesiones) ==================== */
+// Cada carpeta es {id, name}. Los elementos guardan folderId (null = sin carpeta).
+// La lista de carpetas se guarda en app_data con las claves exercise-folders / session-folders.
+const FOLDERS = {
+  exercises: { foldersKey:'exerciseFolders', itemsKey:'exercises', label:'ejercicio' },
+  sessions:  { foldersKey:'sessionFolders',  itemsKey:'sessionTemplates', label:'sesión' }
+};
+let folderSel = { exercises:'all', sessions:'all' }; // 'all' | 'none' | id de carpeta
+function folderOf(kind, item){
+  const f = item.folderId && state[FOLDERS[kind].foldersKey].find(x=>x.id===item.folderId);
+  return f ? f.id : null;
+}
+function inSelectedFolder(kind, item){
+  const sel = folderSel[kind];
+  if(sel==='all') return true;
+  if(sel==='none') return !folderOf(kind, item);
+  return folderOf(kind, item)===sel;
+}
+function folderBarHtml(kind){
+  const cfg = FOLDERS[kind], folders = state[cfg.foldersKey], items = state[cfg.itemsKey];
+  const sel = folderSel[kind];
+  const count = id => items.filter(it=>folderOf(kind,it)===id).length;
+  const noneCount = count(null);
+  const current = folders.find(f=>f.id===sel);
+  return `<div class="folder-bar">
+    <button type="button" class="folder-chip ${sel==='all'?'selected':''}" data-folder="all">Todas <span>${items.length}</span></button>
+    ${folders.map(f=>`<button type="button" class="folder-chip ${sel===f.id?'selected':''}" data-folder="${f.id}">📁 ${esc(f.name)} <span>${count(f.id)}</span></button>`).join('')}
+    ${folders.length && noneCount ? `<button type="button" class="folder-chip ${sel==='none'?'selected':''}" data-folder="none">Sin carpeta <span>${noneCount}</span></button>` : ''}
+    <button type="button" class="folder-chip folder-new" data-newfolder>+ Nueva carpeta</button>
+  </div>
+  ${current ? `<div class="folder-actions"><span class="meta">Carpeta «${esc(current.name)}»</span>
+    <button type="button" class="btn btn-ghost btn-sm" data-renamefolder>Renombrar</button>
+    <button type="button" class="btn btn-ghost btn-sm" data-delfolder>Eliminar carpeta</button></div>` : ''}`;
+}
+function wireFolderBar(root, kind){
+  const cfg = FOLDERS[kind];
+  root.querySelectorAll('[data-folder]').forEach(b=>b.addEventListener('click', ()=>{ folderSel[kind] = b.getAttribute('data-folder'); render(); }));
+  const nb = root.querySelector('[data-newfolder]');
+  if(nb) nb.addEventListener('click', ()=>folderNameModal('Nueva carpeta', '', name=>{
+    const f = {id:uid('fld'), name};
+    state[cfg.foldersKey].push(f); persist(cfg.foldersKey);
+    folderSel[kind] = f.id; render();
+  }));
+  const current = state[cfg.foldersKey].find(f=>f.id===folderSel[kind]);
+  const rb = root.querySelector('[data-renamefolder]');
+  if(rb && current) rb.addEventListener('click', ()=>folderNameModal('Renombrar carpeta', current.name, name=>{
+    current.name = name; persist(cfg.foldersKey); render();
+  }));
+  const db = root.querySelector('[data-delfolder]');
+  if(db && current) db.addEventListener('click', ()=>{
+    const inside = state[cfg.itemsKey].filter(it=>it.folderId===current.id);
+    if(!confirm(`¿Eliminar la carpeta «${current.name}»?` + (inside.length ? ` Sus ${inside.length} elemento(s) no se borran: pasan a «Sin carpeta».` : ''))) return;
+    inside.forEach(it=>{ it.folderId = null; });
+    state[cfg.foldersKey] = state[cfg.foldersKey].filter(f=>f.id!==current.id);
+    persist(cfg.foldersKey); if(inside.length) persist(cfg.itemsKey);
+    folderSel[kind] = 'all'; render();
+  });
+}
+function folderNameModal(title, initial, onOk){
+  openModal(title, `
+    <div class="field"><label>Nombre de la carpeta</label><input type="text" id="f_folder_name" value="${esc(initial)}" placeholder="p. ej. Pretemporada, Fuerza, Movilidad..."></div>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">Cancelar</button><button class="btn btn-primary" id="saveBtn">Guardar</button></div>
+  `, (body)=>{
+    const inp = body.querySelector('#f_folder_name'); inp.focus();
+    const ok = ()=>{ const name = inp.value.trim(); if(!name){ toast('Ponle un nombre a la carpeta.'); return; } closeModal(); onOk(name); };
+    body.querySelector('#cancelBtn').addEventListener('click', closeModal);
+    body.querySelector('#saveBtn').addEventListener('click', ok);
+    inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); ok(); } });
+  });
+}
+// Selector de carpeta para los formularios. Por defecto, la carpeta que está abierta.
+function folderSelectHtml(kind, currentId){
+  const folders = state[FOLDERS[kind].foldersKey];
+  if(!folders.length) return '';
+  const def = currentId!==undefined ? currentId : (folders.some(f=>f.id===folderSel[kind]) ? folderSel[kind] : null);
+  return `<div class="field"><label>Carpeta</label><select id="f_folder">
+    <option value="">— Sin carpeta —</option>
+    ${folders.map(f=>`<option value="${f.id}" ${def===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}
+  </select></div>`;
+}
+function readFolderSelect(body){ const el = body.querySelector('#f_folder'); return el ? (el.value || null) : undefined; }
+
 /* ==================== COACH: EXERCISES ==================== */
 let exerciseFilterQuery = '';
 let exerciseFilterTags = [];
@@ -944,13 +1050,19 @@ function renderExercises(main){
       <div><h2>Ejercicios</h2><div class="sub">Tu biblioteca reutilizable</div></div>
       <button class="btn btn-primary" id="addExBtn">+ Añadir ejercicio</button>
     </div>
-    <div class="field"><input type="text" id="exSearchInput" placeholder="Buscar por nombre o categoría…" value="${esc(exerciseFilterQuery)}"></div>
+    ${folderBarHtml('exercises')}
+    <div class="field"><input type="text" id="exSearchInput" placeholder="Buscar por nombre o etiqueta…" value="${esc(exerciseFilterQuery)}"></div>
+    ${allExerciseTags().length ? `<div class="tag-filter-head"><span class="meta">Filtrar por etiquetas${exerciseFilterTags.length>1?' (deben tener todas las marcadas)':''}:</span>
+      ${exerciseFilterTags.length ? '<button type="button" class="btn btn-ghost btn-sm" id="clearTags">Quitar filtros</button>' : ''}</div>
     <div class="tag-grid" id="exTagFilter" style="margin-bottom:16px;">
-      ${TAG_OPTIONS.map(t=>`<button type="button" class="tag-chip ${exerciseFilterTags.includes(t)?'selected':''}" data-tag="${esc(t)}">${esc(t)}</button>`).join('')}
-    </div>
+      ${allExerciseTags().map(([t,n])=>`<button type="button" class="tag-chip ${exerciseFilterTags.includes(t)?'selected':''}" data-tag="${esc(t)}">${esc(t)} <span class="tag-count">${n}</span></button>`).join('')}
+    </div>` : ''}
     <div id="exList"></div>
   `;
   document.getElementById('addExBtn').addEventListener('click', ()=>exerciseForm());
+  wireFolderBar(main, 'exercises');
+  const clearTags = document.getElementById('clearTags');
+  if(clearTags) clearTags.addEventListener('click', ()=>{ exerciseFilterTags = []; renderExercises(main); });
   const searchInput = document.getElementById('exSearchInput');
   searchInput.addEventListener('input', ()=>{ exerciseFilterQuery = searchInput.value; renderExerciseList(); });
   document.querySelectorAll('#exTagFilter [data-tag]').forEach(chip=>{
@@ -962,6 +1074,12 @@ function renderExercises(main){
   });
   renderExerciseList();
 }
+// Etiquetas que se usan en la biblioteca, con cuántos ejercicios tiene cada una
+function allExerciseTags(){
+  const counts = {};
+  state.exercises.forEach(e=>(e.categories||[]).forEach(c=>{ counts[c]=(counts[c]||0)+1; }));
+  return Object.entries(counts).sort((a,b)=>a[0].localeCompare(b[0],'es'));
+}
 function renderExerciseList(){
   const list = document.getElementById('exList');
   if(!state.exercises.length){
@@ -971,8 +1089,8 @@ function renderExerciseList(){
   const q = exerciseFilterQuery.trim().toLowerCase();
   const filtered = state.exercises.filter(e=>{
     const matchesQ = !q || e.name.toLowerCase().includes(q) || (e.categories||[]).some(c=>c.toLowerCase().includes(q));
-    const matchesTags = !exerciseFilterTags.length || (e.categories||[]).some(c=>exerciseFilterTags.includes(c));
-    return matchesQ && matchesTags;
+    const matchesTags = exerciseFilterTags.every(t=>(e.categories||[]).includes(t));
+    return inSelectedFolder('exercises', e) && matchesQ && matchesTags;
   });
   if(!filtered.length){ list.innerHTML = emptyBlock('Ningún ejercicio coincide con ese filtro.'); return; }
   list.innerHTML = filtered.map(e=>{
@@ -983,7 +1101,7 @@ function renderExerciseList(){
       <div style="display:flex;gap:10px;align-items:flex-start;">
         ${img}
         <div>
-          <strong>${esc(e.name)}</strong>
+          <strong>${esc(e.name)}</strong>${folderSel.exercises==='all' && folderOf('exercises', e) ? ` <span class="meta">· 📁 ${esc(state.exerciseFolders.find(f=>f.id===e.folderId).name)}</span>` : ''}
           ${(e.categories||[]).length? `<div style="margin-top:4px;">${(e.categories||[]).map(c=>`<span class="badge badge-type" style="margin-right:4px;">${esc(c)}</span>`).join('')}</div>` : ''}
           ${e.videoUrl? `<a class="video-link" href="${esc(normalizeUrl(e.videoUrl))}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:4px;">▶ ver vídeo</a>` : ''}
           ${e.notes? `<div class="meta" style="margin-top:4px;">${esc(e.notes)}</div>` : ''}
@@ -1011,6 +1129,7 @@ function exerciseForm(id){
       <div class="tag-grid" id="catGrid"></div>
       <div class="row" style="margin-top:8px;"><input type="text" id="customTag" placeholder="Añadir otra categoría y pulsa Enter"></div>
     </div>
+    ${folderSelectHtml('exercises', id ? folderOf('exercises', e) : undefined)}
     <div class="field"><label>Vídeo demostrativo (YouTube u otra plataforma, opcional)</label><input type="text" id="f_video" value="${esc(e.videoUrl)}" placeholder="https://youtube.com/watch?v=..."></div>
     <div class="field"><label>Notas / indicaciones técnicas</label><textarea id="f_notes">${esc(e.notes)}</textarea></div>
     <div class="modal-actions">
@@ -1044,6 +1163,7 @@ function exerciseForm(id){
       const name = body.querySelector('#f_name').value.trim();
       if(!name){ toast('Ponle un nombre al ejercicio.'); return; }
       e.name=name; e.videoUrl=body.querySelector('#f_video').value.trim(); e.notes=body.querySelector('#f_notes').value.trim();
+      const fld = readFolderSelect(body); if(fld!==undefined) e.folderId = fld;
       const idx = state.exercises.findIndex(x=>x.id===e.id);
       if(idx>=0) state.exercises[idx]=e; else state.exercises.push(e);
       persist('exercises'); closeModal(); render();
@@ -1058,20 +1178,24 @@ function renderSessionTemplates(main){
       <div><h2>Sesiones</h2><div class="sub">Plantillas de entrenamiento listas para asignar</div></div>
       <button class="btn btn-primary" id="addSessBtn">+ Nueva sesión</button>
     </div>
+    ${folderBarHtml('sessions')}
     <div id="sessList"></div>
   `;
   document.getElementById('addSessBtn').addEventListener('click', ()=>sessionForm());
+  wireFolderBar(main, 'sessions');
   const list = document.getElementById('sessList');
   if(!state.sessionTemplates.length){
     list.innerHTML = `<div class="empty"><h3>Sin sesiones todavía</h3><p>Crea tu primera plantilla de sesión para poder programarla en el calendario.</p></div>`;
     return;
   }
-  list.innerHTML = state.sessionTemplates.map(s=>{
+  const shown = state.sessionTemplates.filter(s=>inSelectedFolder('sessions', s));
+  if(!shown.length){ list.innerHTML = emptyBlock('No hay sesiones en esta carpeta. Pulsa «+ Nueva sesión» para crear una aquí.'); return; }
+  list.innerHTML = shown.map(s=>{
     const exCount = (s.blocks||[]).reduce((n,b)=>n+((b.exercises||[]).length),0);
     return `
     <div class="list-row">
       <div>
-        <strong>${esc(s.name)}</strong>${s.focus? ' <span class="badge badge-type">'+esc(s.focus)+'</span>':''}
+        <strong>${esc(s.name)}</strong>${s.focus? ' <span class="badge badge-type">'+esc(s.focus)+'</span>':''}${folderSel.sessions==='all' && folderOf('sessions', s) ? ` <span class="meta">· 📁 ${esc(state.sessionFolders.find(f=>f.id===s.folderId).name)}</span>` : ''}
         <div class="meta">${(s.blocks||[]).length} bloque(s) · ${exCount} ejercicio(s)</div>
       </div>
       <div class="actions">
@@ -1086,24 +1210,34 @@ function renderSessionTemplates(main){
     persist('sessionTemplates'); render();
   }));
 }
-function sessionForm(id, onSaved){
-  const s = id ? JSON.parse(JSON.stringify(state.sessionTemplates.find(x=>x.id===id))) : {id:uid('sess'), name:'', focus:'', notes:'', blocks:[]};
+// opts (opcional):
+//  data        objeto de partida (copia de otra sesión, o la sesión asignada a un día)
+//  title, saveLabel, extraHtml  textos del formulario
+//  hideFolder  no mostrar el selector de carpeta
+//  mustDifferFrom  nombre que no se puede repetir (al crear a partir de otra sesión)
+//  onSave(s, body)  guardado propio; si devuelve false el formulario sigue abierto
+function sessionForm(id, onSaved, opts){
+  opts = opts || {};
+  const s = opts.data ? JSON.parse(JSON.stringify(opts.data))
+    : id ? JSON.parse(JSON.stringify(state.sessionTemplates.find(x=>x.id===id))) : {id:uid('sess'), name:'', focus:'', notes:'', blocks:[]};
   s.blocks = migrateBlocks(s.blocks);
   const bodyHtml = `
     <div class="field"><label>Nombre de la sesión</label><input type="text" id="f_name" value="${esc(s.name)}"></div>
     <div class="row">
       <div class="field"><label>Enfoque (opcional)</label><input type="text" id="f_focus" value="${esc(s.focus)}" placeholder="p. ej. Fuerza tren superior"></div>
     </div>
+    ${opts.hideFolder ? '' : folderSelectHtml('sessions', (id || opts.data) ? folderOf('sessions', s) : undefined)}
     <label>Bloques de la sesión</label>
     <div id="blocksContainer"></div>
     <button class="btn btn-sm" id="addBlockBtn" type="button">+ Añadir bloque</button>
     <div class="field" style="margin-top:14px;"><label>Notas generales de la sesión</label><textarea id="f_notes">${esc(s.notes)}</textarea></div>
+    ${opts.extraHtml || ''}
     <div class="modal-actions">
       <button class="btn" id="cancelBtn">Cancelar</button>
-      <button class="btn btn-primary" id="saveBtn">Guardar sesión</button>
+      <button class="btn btn-primary" id="saveBtn">${esc(opts.saveLabel || 'Guardar sesión')}</button>
     </div>
   `;
-  openModal(id?'Editar sesión':'Nueva sesión', bodyHtml, (body)=>{
+  openModal(opts.title || (id?'Editar sesión':'Nueva sesión'), bodyHtml, (body)=>{
     function renderBlocksUI(){
       const c = body.querySelector('#blocksContainer');
       c.innerHTML = s.blocks.map(blk=>`
@@ -1216,10 +1350,20 @@ function sessionForm(id, onSaved){
       renderBlocksUI();
     });
     body.querySelector('#cancelBtn').addEventListener('click', closeModal);
-    body.querySelector('#saveBtn').addEventListener('click', ()=>{
+    const saveBtn = body.querySelector('#saveBtn');
+    saveBtn.addEventListener('click', async ()=>{
       const name = body.querySelector('#f_name').value.trim();
       if(!name){ toast('Ponle un nombre a la sesión.'); return; }
+      if(opts.mustDifferFrom && name.toLowerCase()===opts.mustDifferFrom.toLowerCase()){ toast('Ponle un nombre distinto al de la sesión original.'); return; }
       s.name=name; s.focus=body.querySelector('#f_focus').value.trim(); s.notes=body.querySelector('#f_notes').value.trim();
+      const fld = readFolderSelect(body); if(fld!==undefined) s.folderId = fld;
+      if(opts.onSave){
+        saveBtn.disabled = true;
+        const ok = await opts.onSave(s, body);
+        saveBtn.disabled = false;
+        if(ok!==false) closeModal();
+        return;
+      }
       const idx = state.sessionTemplates.findIndex(x=>x.id===s.id);
       if(idx>=0) state.sessionTemplates[idx]=s; else state.sessionTemplates.push(s);
       persist('sessionTemplates');
@@ -1439,6 +1583,66 @@ function renderCalendar(main){
     });
   });
 }
+// Quitar una sesión o cuestionario de un día (se borra solo esa asignación, no la plantilla)
+async function removeAssignment(kind, id){
+  const list = kind==='sesión' ? state.assignments : state.qAssignments;
+  const a = list.find(x=>x.id===id); if(!a) return;
+  let msg = `¿Quitar «${a.templateName}» del ${fmtDate(a.date)} de ${athleteName(a.athleteId)}?`;
+  if(a.status==='completada') msg += `\n\nOjo: ya está completada; se borrarán también ${kind==='sesión'?'su RPE y comentarios':'sus respuestas'}.`;
+  if(!confirm(msg)) return;
+  const ok = await deleteItem(id);
+  if(!ok){ toast('No se ha podido quitar. Revisa tu conexión e inténtalo de nuevo.'); return; }
+  if(kind==='sesión') state.assignments = state.assignments.filter(x=>x.id!==id);
+  else state.qAssignments = state.qAssignments.filter(x=>x.id!==id);
+  toast('Quitado del día.');
+  closeModal(); render();
+}
+// Modificar la sesión asignada a un día concreto (y, si se quiere, también la plantilla)
+function editAssignedSession(id){
+  const a = state.assignments.find(x=>x.id===id); if(!a) return;
+  a.blocks = migrateBlocks(a.blocks);
+  const tpl = state.sessionTemplates.find(t=>t.id===a.templateId);
+  const extraHtml = tpl ? `<label class="check-row" style="margin-top:6px;"><input type="checkbox" id="f_applyTpl" checked>
+      Aplicar también estos cambios a la sesión «${esc(tpl.name)}» de la pestaña Sesiones</label>
+      <p class="meta" style="font-size:11.5px;margin:4px 0 0 0;">Lo ya asignado en otros días no cambia.</p>` : '';
+  sessionForm(null, null, {
+    data: { id:a.id, name:a.templateName, focus:a.focus||'', notes: a.notes ?? (tpl ? tpl.notes||'' : ''), blocks:a.blocks },
+    title: `Editar sesión · ${fmtDate(a.date)} · ${athleteName(a.athleteId)}`,
+    saveLabel: 'Guardar cambios', hideFolder: true, extraHtml,
+    onSave: async (edited, body)=>{
+      const applyTpl = !!(tpl && body.querySelector('#f_applyTpl') && body.querySelector('#f_applyTpl').checked);
+      const prev = JSON.parse(JSON.stringify(a));
+      // Mantener lo que el deportista ya había marcado como hecho
+      const doneById = {};
+      prev.blocks.forEach(b=>(b.exercises||[]).forEach(x=>{ doneById[x.id] = !!x.done; }));
+      a.templateName = edited.name; a.focus = edited.focus; a.notes = edited.notes;
+      a.blocks = edited.blocks.map(b=>({ ...b, exercises:(b.exercises||[]).map(x=>({ ...x, done: doneById[x.id]||false })) }));
+      const ok = await updateItem(a);
+      if(!ok){
+        Object.keys(a).forEach(k=>delete a[k]); Object.assign(a, prev);
+        toast('No se han podido guardar los cambios. Revisa tu conexión e inténtalo de nuevo.');
+        return false;
+      }
+      if(applyTpl){
+        tpl.name = edited.name; tpl.focus = edited.focus; tpl.notes = edited.notes;
+        tpl.blocks = edited.blocks.map(b=>({ ...b, exercises:(b.exercises||[]).map(x=>{ const c = {...x}; delete c.done; return c; }) }));
+        persist('sessionTemplates');
+      }
+      toast(applyTpl ? 'Sesión del día y plantilla actualizadas.' : 'Sesión del día actualizada.');
+      render();
+    }
+  });
+}
+function coachItemActions(kind, id){
+  return `<div class="item-actions">
+    ${kind==='sesión' ? `<button type="button" class="btn btn-sm" data-editasg="${id}">✎ Editar</button>` : ''}
+    <button type="button" class="btn btn-sm btn-danger" data-rmasg="${id}" data-rmkind="${kind}">Quitar</button>
+  </div>`;
+}
+function wireCoachItemActions(root){
+  root.querySelectorAll('[data-editasg]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); closeModal(); editAssignedSession(b.getAttribute('data-editasg')); }));
+  root.querySelectorAll('[data-rmasg]').forEach(b=>b.addEventListener('click', (e)=>{ e.stopPropagation(); removeAssignment(b.getAttribute('data-rmkind'), b.getAttribute('data-rmasg')); }));
+}
 function defaultAssignPrefill(extra){
   return Object.assign({ athIds: calendarAthleteFilter!=='all' ? [calendarAthleteFilter] : [] }, extra||{});
 }
@@ -1446,9 +1650,10 @@ function defaultAssignPrefill(extra){
 function dayMenu(date){
   const items = calendarItems(date);
   const bodyHtml = `
-    ${items.length ? `<div style="margin-bottom:14px;">${items.map(it=>`<div class="day-item ${it._kind==='cuestionario'?'is-q':''}" data-kind="${it._kind}" data-id="${it.id}">
-        <span class="t">${esc(it.templateName)}</span>
-        ${it._kind==='sesión'?'Sesión':'Cuestionario'} · ${esc(athleteName(it.athleteId))} · ${it.status==='completada'?'✓ completada':'pendiente'}
+    ${items.length ? `<div style="margin-bottom:14px;">${items.map(it=>`<div class="day-item day-item-row ${it._kind==='cuestionario'?'is-q':''}" data-kind="${it._kind}" data-id="${it.id}">
+        <div><span class="t">${esc(it.templateName)}</span>
+        ${it._kind==='sesión'?'Sesión':'Cuestionario'} · ${esc(athleteName(it.athleteId))} · ${it.status==='completada'?'✓ completada':'pendiente'}</div>
+        ${coachItemActions(it._kind, it.id)}
       </div>`).join('')}</div>` : '<p class="meta" style="margin-bottom:14px;">Nada programado este día.</p>'}
     <div class="modal-actions" style="justify-content:flex-start;">
       <button class="btn btn-primary" id="addSess">+ Añadir sesión</button>
@@ -1457,6 +1662,7 @@ function dayMenu(date){
   openModal(esc(fmtDate(date)), bodyHtml, (body)=>{
     body.querySelector('#addSess').addEventListener('click', ()=>assignForm(defaultAssignPrefill({date, mode:'session'})));
     body.querySelector('#addQ').addEventListener('click', ()=>assignForm(defaultAssignPrefill({date, mode:'questionnaire'})));
+    wireCoachItemActions(body);
     body.querySelectorAll('[data-id]').forEach(el=>el.addEventListener('click', ()=>{
       closeModal();
       openCalendarItem(el.getAttribute('data-kind'), el.getAttribute('data-id'));
@@ -1485,6 +1691,7 @@ function assignForm(prefill){
         </select>
         <button class="btn btn-sm" id="newSessBtn" type="button">+ Nueva sesión</button>
       </div>
+      <button class="btn btn-sm" id="copySessBtn" type="button" style="margin-top:8px;" ${pre.sessId?'':'hidden'}>✎ Modificar esta sesión y guardarla con otro nombre</button>
     </div>` : ''}
     ${showQ ? `<fieldset>
       <legend>Cuestionarios${showS?' (opcional)':''} · puedes marcar varios</legend>
@@ -1499,6 +1706,27 @@ function assignForm(prefill){
   `;
   const title = pre.mode==='session' ? 'Añadir sesión' : pre.mode==='questionnaire' ? 'Añadir cuestionario' : 'Asignar trabajo';
   openModal(title, bodyHtml, (body)=>{
+    // Recoge lo marcado en el formulario para volver a él tras crear una sesión
+    const currentPrefill = (extra)=>Object.assign({
+      date: body.querySelector('#f_date').value,
+      athIds: Array.from(body.querySelectorAll('.ath-check:checked')).map(c=>c.value),
+      qIds: Array.from(body.querySelectorAll('.q-check:checked')).map(c=>c.value),
+      mode: pre.mode
+    }, extra||{});
+    const sessSelect = body.querySelector('#f_sess'), copySessBtn = body.querySelector('#copySessBtn');
+    if(sessSelect && copySessBtn){
+      sessSelect.addEventListener('change', ()=>{ copySessBtn.hidden = !sessSelect.value; });
+      copySessBtn.addEventListener('click', ()=>{
+        const base = state.sessionTemplates.find(t=>t.id===sessSelect.value); if(!base) return;
+        const back = currentPrefill();
+        closeModal();
+        const copy = JSON.parse(JSON.stringify(base));
+        copy.id = uid('sess'); copy.name = base.name+' (copia)';
+        sessionForm(null, (newTpl)=>{ toast('Sesión «'+newTpl.name+'» creada en la pestaña Sesiones.'); assignForm(Object.assign(back, {sessId:newTpl.id})); }, {
+          data: copy, title: `Nueva sesión a partir de «${base.name}»`, saveLabel: 'Guardar y volver a asignar', mustDifferFrom: base.name
+        });
+      });
+    }
     const newSessBtn = body.querySelector('#newSessBtn');
     if(newSessBtn) newSessBtn.addEventListener('click', ()=>{
       const date = body.querySelector('#f_date').value;
@@ -1682,7 +1910,10 @@ function viewSessionAssignment(id, readOnlyCoachView){
       <div class="card-tab ${a.status==='completada'?'tab-sage':'tab-yellow'}"></div>
       <div class="section-head" style="margin-bottom:14px;">
         <div><h3>${esc(a.templateName)}</h3><div class="sub">${fmtDate(a.date)} · ${esc(athleteName(a.athleteId))}${a.focus? ' · '+esc(a.focus):''}</div></div>
-        ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+          ${readonly && view.role==='coach' ? coachItemActions('sesión', a.id) : ''}
+        </div>
       </div>
       ${blocksHtml}
       <div id="videoPlayerArea"></div>
@@ -1696,6 +1927,7 @@ function viewSessionAssignment(id, readOnlyCoachView){
   `;
   area.innerHTML = html;
   area.scrollIntoView({behavior:'smooth', block:'nearest'});
+  wireCoachItemActions(area);
   area.querySelectorAll('[data-blkid][data-exid]').forEach(cb=>{
     cb.addEventListener('change', ()=>{
       const blk = a.blocks.find(b=>b.id===cb.getAttribute('data-blkid'));
@@ -1745,7 +1977,10 @@ function viewQAssignment(id, readOnlyCoachView){
       <div class="card-tab ${a.status==='completada'?'tab-sage':'tab-ember'}"></div>
       <div class="section-head" style="margin-bottom:14px;">
         <div><h3>${esc(a.templateName)}</h3><div class="sub">${fmtDate(a.date)} · ${esc(athleteName(a.athleteId))}</div></div>
-        ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          ${a.status==='completada'?'<span class="badge badge-done">completada</span>':'<span class="badge badge-pending">pendiente</span>'}
+          ${readonly && view.role==='coach' ? coachItemActions('cuestionario', a.id) : ''}
+        </div>
       </div>
       <div id="qItemsArea"></div>
       ${!readonly ? `<button class="btn btn-primary" id="sendBtn" style="margin-top:10px;">Enviar respuestas</button>` : ''}
@@ -1753,6 +1988,7 @@ function viewQAssignment(id, readOnlyCoachView){
   `;
   area.innerHTML = html;
   area.scrollIntoView({behavior:'smooth', block:'nearest'});
+  wireCoachItemActions(area);
   const itemsArea = area.querySelector('#qItemsArea');
   itemsArea.innerHTML = a.questions.map(q=>{
     const val = a.responses[q.id];
