@@ -61,10 +61,18 @@ varios entrenadores independientes, cada uno con su propio equipo.
 
 ## Diseño
 - Paleta: negro / rojo / blanco (variables CSS `--bg`, `--yellow` (rojo
-  principal), `--ember` (rojo secundario), `--sage` (blanco, para estados
-  "completado")).
-- Tipografía: Space Grotesk (títulos) + Inter (cuerpo), cargadas de Google
-  Fonts.
+  principal), `--ember` (rojo secundario), `--sage` (color de «completado»)).
+- Dos temas, todo por variables CSS (no usar colores fijos que solo
+  funcionen en uno):
+  - «Estadio nocturno» (por defecto, en `:root`): negro con halo rojo
+    (`--page-glow`), tarjetas de cristal (`--glass`, `--blur`), brillo rojo
+    en botones y en «hoy» (`--glow-red`). Fuentes Outfit + DM Sans.
+  - «Estudio claro» (`:root[data-theme="light"]`): blanco roto, tarjetas
+    blancas con sombra suave; el logo va sobre una baldosa negra
+    (`--logo-tile`). Fuente Plus Jakarta Sans.
+  - Cada usuario lo elige en «Opciones» (entrenador y deportista). Se guarda
+    en su cuenta (`user_metadata.theme` de Supabase Auth, sin tabla nueva)
+    y en `localStorage` (`ap-theme`) para aplicarlo antes de pintar.
 - Logo: escudo "AG Athlete Performance" (imagen WebP embebida en base64 en
   la constante `LOGO_SRC` de `index.html`; se pinta en todas las
   `<img class="brand-logo">`). Lema debajo: "ELEVA TU RENDIMIENTO".

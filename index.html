@@ -5,32 +5,78 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Athlete Performance</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  // Tema visual: «Estadio nocturno» (oscuro, por defecto) o «Estudio claro».
+  // Se aplica antes de pintar nada para que no haya un parpadeo al cargar.
+  try{ if(localStorage.getItem('ap-theme')==='light') document.documentElement.setAttribute('data-theme','light'); }catch(e){}
+</script>
 <style>
+  /* Tema «Estadio nocturno» (por defecto): negro con halo rojo, tarjetas de cristal */
   :root{
-    --bg:#0A0A0A;
-    --bg-panel:#161616;
-    --bg-panel-2:#1F1F1F;
-    --bg-input:#141414;
+    color-scheme:dark;
+    --bg:#07070A;
+    --bg-panel:#121217;
+    --bg-panel-2:#1A1A21;
+    --bg-input:#0F0F14;
+    --glass:rgba(255,255,255,0.045);
+    --glass-strong:rgba(18,18,24,0.82);
     --chalk:#FFFFFF;
-    --chalk-dim:#B3B3B3;
-    --chalk-faint:#767676;
-    --line:rgba(255,255,255,0.14);
-    --line-strong:rgba(255,255,255,0.30);
+    --chalk-dim:#A6A6B0;
+    --chalk-faint:#6E6E78;
+    --line:rgba(255,255,255,0.10);
+    --line-strong:rgba(255,255,255,0.22);
     --yellow:#E2001A;
     --yellow-dim:rgba(226,0,26,0.16);
-    --ember:#FF4D4D;
-    --ember-dim:rgba(255,77,77,0.16);
+    --ember:#FF4D5E;
+    --ember-dim:rgba(255,77,94,0.16);
     --sage:#FFFFFF;
-    --sage-dim:rgba(255,255,255,0.14);
-    --radius:3px;
-    --font-display:'Space Grotesk',sans-serif;
-    --font-body:'Inter',sans-serif;
+    --sage-dim:rgba(255,255,255,0.12);
+    --danger:#FF6B6B;
+    --radius:12px;
+    --radius-sm:8px;
+    --shadow-card:0 10px 30px rgba(0,0,0,0.35);
+    --glow-red:0 6px 22px rgba(226,0,26,0.45);
+    --page-glow:radial-gradient(110% 55% at 85% -10%, rgba(226,0,26,0.30), transparent 60%), radial-gradient(80% 45% at -15% 35%, rgba(226,0,26,0.10), transparent 60%);
+    --blur:blur(14px);
+    --logo-tile:transparent;
+    --font-display:'Outfit',system-ui,sans-serif;
+    --font-body:'DM Sans',system-ui,sans-serif;
+  }
+  /* Tema «Estudio claro»: blanco roto, texto negro y el rojo solo para actuar */
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --bg:#F6F6F4;
+    --bg-panel:#FFFFFF;
+    --bg-panel-2:#F1F1EE;
+    --bg-input:#FFFFFF;
+    --glass:#FFFFFF;
+    --glass-strong:rgba(255,255,255,0.92);
+    --chalk:#111113;
+    --chalk-dim:#55555C;
+    --chalk-faint:#8C8C93;
+    --line:#E6E6E1;
+    --line-strong:#D3D3CC;
+    --yellow:#E2001A;
+    --yellow-dim:rgba(226,0,26,0.09);
+    --ember:#D21F35;
+    --ember-dim:rgba(210,31,53,0.10);
+    --sage:#111113;
+    --sage-dim:rgba(17,17,19,0.07);
+    --danger:#D21F35;
+    --shadow-card:0 1px 0 rgba(17,17,19,0.04), 0 8px 24px rgba(17,17,19,0.06);
+    --glow-red:0 6px 18px rgba(226,0,26,0.25);
+    --page-glow:none;
+    --blur:none;
+    --logo-tile:#111113;
+    --font-display:'Plus Jakarta Sans',system-ui,sans-serif;
+    --font-body:'Plus Jakarta Sans',system-ui,sans-serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--bg);
+    background:var(--page-glow), var(--bg);
+    background-attachment:fixed;
     color:var(--chalk);
     font-family:var(--font-body);
     font-size:14px;
@@ -123,7 +169,7 @@
   /* ---------- forms ---------- */
   label{display:block;font-size:12px;color:var(--chalk-dim);margin-bottom:5px;font-weight:500;}
   .field{margin-bottom:13px;}
-  input[type=text],input[type=email],input[type=date],input[type=number],select,textarea{
+  input[type=text],input[type=email],input[type=password],input[type=date],input[type=number],select,textarea{
     width:100%;background:var(--bg-input);border:1px solid var(--line-strong);
     color:var(--chalk);border-radius:var(--radius);padding:8px 10px;font-size:13.5px;
   }
@@ -201,7 +247,7 @@
   .sv-block{margin-top:16px;}
   .sv-block-name{font-size:12px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;font-weight:600;}
   .sv-ex{display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg-panel);margin-bottom:8px;}
-  .sv-ex.is-done{border-color:rgba(255,255,255,.35);}
+  .sv-ex.is-done{border-color:var(--line-strong);}
   .sv-ex.is-done .sv-ex-title{opacity:.75;}
   .sv-media{position:relative;flex:none;width:112px;aspect-ratio:16/9;border-radius:8px;overflow:hidden;border:none;padding:0;background:#000;cursor:pointer;display:block;}
   .sv-media img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -235,8 +281,8 @@
   .asg-act{display:flex;flex-direction:column;align-items:center;gap:5px;background:transparent;border:none;color:var(--chalk);font-size:11.5px;cursor:pointer;min-width:70px;padding:4px;}
   .asg-act span{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-strong);display:flex;align-items:center;justify-content:center;font-size:17px;}
   .asg-act:hover span{border-color:var(--yellow);background:var(--yellow-dim);}
-  .asg-act.danger{color:#FF6B6B;}
-  .asg-act.danger:hover span{border-color:#FF6B6B;background:rgba(255,107,107,.12);}
+  .asg-act.danger{color:var(--danger);}
+  .asg-act.danger:hover span{border-color:var(--danger);background:var(--ember-dim);}
   .asg-summary .sum-block{margin-bottom:12px;}
   .sum-block-name{font-size:12px;color:var(--chalk-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
   .sum-item{border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;margin-bottom:6px;background:var(--bg-panel);display:flex;gap:8px;}
@@ -370,6 +416,58 @@
     nav.side-nav{flex-direction:row;padding:0;}
     #main{padding:18px 16px 60px 16px;}
   }
+
+  /* ==================== ACABADO VISUAL (ambos temas) ==================== */
+  h1,h2,h3,h4{font-weight:700;letter-spacing:-0.01em;}
+  .section-head h2{font-size:26px;font-weight:800;}
+  #sidebar{background:var(--glass-strong);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);}
+  #topbar{background:var(--glass-strong);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);}
+  .brand-logo{background:var(--logo-tile);border-radius:18px;padding:var(--logo-pad,0);}
+  :root[data-theme="light"] .brand-logo{--logo-pad:10px;}
+  .nav-item{border-left:none;border-radius:10px;}
+  .nav-item.active{background:var(--yellow-dim);color:var(--chalk);border-left:none;font-weight:600;}
+  .nav-item.active .nav-dot{background:var(--yellow);opacity:1;box-shadow:0 0 8px var(--yellow);}
+  .btn{border-radius:10px;}
+  .btn-primary{box-shadow:var(--glow-red);}
+  .btn-sm{border-radius:8px;}
+  .card,.list-row,.day-col,.sv-ex,.sum-item,.asg-card,.empty,.block-editor,fieldset{border-radius:var(--radius);}
+  .card,.list-row,.day-col,.sv-ex,.sum-item,.asg-card{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);box-shadow:var(--shadow-card);}
+  .modal{border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.45);}
+  .modal-backdrop,.sheet-backdrop{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+  .sheet{border-radius:18px;}
+  .sheet-bar{border-radius:18px 18px 0 0;}
+  input[type=text],input[type=email],input[type=password],input[type=date],input[type=number],select,textarea{border-radius:10px;}
+  .badge{border-radius:999px;}
+  .tag-chip,.folder-chip{border-radius:999px;}
+  .seg{border-radius:999px;}
+  .seg-btn.active{box-shadow:var(--glow-red);border-radius:999px;}
+  .day-col.is-today{border-color:var(--yellow);box-shadow:var(--glow-red);}
+  .day-item{border-radius:8px;}
+  .month-grid{border-radius:var(--radius);overflow:hidden;}
+  .month-cell.is-today .month-num{box-shadow:var(--glow-red);}
+  .ss-box{border-radius:var(--radius);}
+  .scale-opt{border-radius:10px;}
+  .scale-opt.selected{box-shadow:var(--glow-red);}
+  .toast{border-radius:12px;box-shadow:var(--shadow-card);}
+  @media(max-width:760px){ .sheet{border-radius:0;} .sheet-bar{border-radius:0;} }
+
+  /* ==================== OPCIONES: selector de tema ==================== */
+  .theme-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;max-width:760px;}
+  .theme-opt{text-align:left;border:2px solid var(--line);border-radius:18px;padding:12px;background:var(--glass);color:var(--chalk);cursor:pointer;font:inherit;}
+  .theme-opt:hover{border-color:var(--line-strong);}
+  .theme-opt.selected{border-color:var(--yellow);box-shadow:var(--glow-red);}
+  .theme-opt:focus-visible{outline:2px solid var(--yellow);outline-offset:2px;}
+  .theme-prev{height:130px;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;overflow:hidden;}
+  .theme-prev .tp-bar{height:10px;width:55%;border-radius:6px;}
+  .theme-prev .tp-card{flex:1;border-radius:10px;padding:8px;display:flex;flex-direction:column;justify-content:space-between;}
+  .theme-prev .tp-line{height:7px;border-radius:4px;width:70%;}
+  .theme-prev .tp-btn{height:16px;width:45%;border-radius:999px;background:#E2001A;}
+  .tp-dark{background:radial-gradient(120% 70% at 85% -10%, rgba(226,0,26,.55), transparent 60%), #07070A;}
+  .tp-dark .tp-bar{background:rgba(255,255,255,.9);} .tp-dark .tp-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);} .tp-dark .tp-line{background:rgba(255,255,255,.35);}
+  .tp-light{background:#F6F6F4;border:1px solid #E6E6E1;}
+  .tp-light .tp-bar{background:#111113;} .tp-light .tp-card{background:#FFFFFF;box-shadow:0 4px 12px rgba(17,17,19,.08);} .tp-light .tp-line{background:#D3D3CC;}
+  .theme-opt strong{display:block;font-family:var(--font-display);font-size:16px;}
+  .theme-opt small{color:var(--chalk-dim);font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -684,6 +782,8 @@ async function doSignup(role, coachId){
 async function afterAuth(){
   const { data: { session } } = await sb.auth.getSession();
   if(!session){ authMode='login'; renderAuthScreen(); return; }
+  const savedTheme = session.user && session.user.user_metadata && session.user.user_metadata.theme;
+  if(savedTheme==='light' || savedTheme==='dark') applyTheme(savedTheme);
   const { data: profile, error } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
   if(error || !profile){
     toast('No se pudo cargar tu perfil.');
@@ -713,11 +813,13 @@ const coachNav = [
   {id:'sessions', label:'Sesiones'},
   {id:'questionnaires', label:'Cuestionarios'},
   {id:'calendar', label:'Planificación'},
-  {id:'tracking', label:'Seguimiento'}
+  {id:'tracking', label:'Seguimiento'},
+  {id:'settings', label:'Opciones'}
 ];
 const athleteNav = [
   {id:'week', label:'Mi semana'},
-  {id:'history', label:'Historial'}
+  {id:'history', label:'Historial'},
+  {id:'settings', label:'Opciones'}
 ];
 
 /* ==================== RENDER SHELL ==================== */
@@ -888,6 +990,7 @@ function render(){
   applyLogo();
   const main = document.getElementById('main');
   main.innerHTML='';
+  if(view.section==='settings'){ renderSettings(main); return; }
   if(view.role==='coach'){
     if(view.section==='panel') renderCoachPanel(main);
     else if(view.section==='athletes') renderAthletes(main);
@@ -902,6 +1005,47 @@ function render(){
     if(view.section==='week') renderAthleteWeek(main);
     else if(view.section==='history') renderAthleteHistory(main);
   }
+}
+
+/* ==================== OPCIONES (tema visual) ==================== */
+function currentTheme(){ return document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark'; }
+function applyTheme(t){
+  if(t==='light') document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  try{ localStorage.setItem('ap-theme', t==='light' ? 'light' : 'dark'); }catch(e){}
+}
+// La elección se guarda en la cuenta de cada persona (entrenador o deportista),
+// así le sale igual en el móvil y en el ordenador.
+async function saveThemeToAccount(t){
+  try{
+    const { error } = await sb.auth.updateUser({ data:{ theme:t } });
+    if(error){ console.error(error); return false; }
+    return true;
+  }catch(e){ console.error(e); return false; }
+}
+function renderSettings(main){
+  const t = currentTheme();
+  main.innerHTML = `
+    <div class="section-head"><div><h2>Opciones</h2><div class="sub">Elige cómo quieres ver la app. Solo te afecta a ti.</div></div></div>
+    <h3 style="font-size:15px;margin-bottom:12px;">Diseño</h3>
+    <div class="theme-grid" role="radiogroup" aria-label="Diseño de la app">
+      <button type="button" class="theme-opt ${t==='dark'?'selected':''}" data-theme-opt="dark" role="radio" aria-checked="${t==='dark'}">
+        <div class="theme-prev tp-dark"><div class="tp-bar"></div><div class="tp-card"><div class="tp-line"></div><div class="tp-btn"></div></div></div>
+        <strong>Estadio nocturno</strong><small>Oscuro, con el brillo rojo. Es el diseño por defecto.</small>
+      </button>
+      <button type="button" class="theme-opt ${t==='light'?'selected':''}" data-theme-opt="light" role="radio" aria-checked="${t==='light'}">
+        <div class="theme-prev tp-light"><div class="tp-bar"></div><div class="tp-card"><div class="tp-line"></div><div class="tp-btn"></div></div></div>
+        <strong>Estudio claro</strong><small>Blanco y limpio. Se lee mejor al sol.</small>
+      </button>
+    </div>`;
+  main.querySelectorAll('[data-theme-opt]').forEach(b=>b.addEventListener('click', async ()=>{
+    const nt = b.getAttribute('data-theme-opt');
+    if(nt===currentTheme()) return;
+    applyTheme(nt); render();
+    const ok = await saveThemeToAccount(nt);
+    toast(ok ? 'Diseño cambiado a «'+(nt==='light'?'Estudio claro':'Estadio nocturno')+'».'
+             : 'Diseño cambiado en este dispositivo, pero no se ha podido guardar en tu cuenta. Revisa tu conexión.');
+  }));
 }
 
 /* ==================== COACH: PANEL ==================== */
