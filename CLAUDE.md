@@ -102,6 +102,12 @@ varios entrenadores independientes, cada uno con su propio equipo.
 - Deportista: su semana con lo asignado, detalle de sesión (marcar
   bloques/ejercicios hechos, dejar RPE y comentarios, reproductor de
   vídeo incrustado), responder cuestionarios, historial.
+- Ver una sesión/cuestionario (deportista o entrenador) se abre en una
+  hoja superpuesta (`openSheet`/`closeSheet`, pantalla completa en móvil).
+  La sesión se pinta en tarjetas por ejercicio (miniatura del vídeo que se
+  reproduce ahí mismo al pulsarla, chips de series/reps/carga/descanso,
+  casilla «Hecho»), con las superseries agrupadas. Quitar algo de un día
+  solo borra esa asignación; la plantilla sigue en Sesiones/Cuestionarios.
 
 ## Convenciones a mantener
 - Un solo archivo `index.html`, nada de build step ni dependencias npm.
