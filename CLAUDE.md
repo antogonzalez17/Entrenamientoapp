@@ -63,16 +63,25 @@ varios entrenadores independientes, cada uno con su propio equipo.
   "completado")).
 - Tipografía: Space Grotesk (títulos) + Inter (cuerpo), cargadas de Google
   Fonts.
-- Logo: wordmark de texto "AP" / "ATHLETE PERFORMANCE" (no es una imagen).
+- Logo: escudo "AG Athlete Performance" (imagen WebP embebida en base64 en
+  la constante `LOGO_SRC` de `index.html`; se pinta en todas las
+  `<img class="brand-logo">`). Lema debajo: "ELEVA TU RENDIMIENTO".
+- Fechas: siempre en hora local (`localISO`, `todayISO`, `addDays`,
+  `startOfWeek`); nunca usar `toISOString()` para fechas de calendario.
 
 ## Funcionalidades ya construidas
 - Entrenador: panel con métricas, gestión de deportistas (editar/dar de
   baja), biblioteca de ejercicios (con categorías/etiquetas y vídeo de
   YouTube/Vimeo con miniatura), creador de sesiones por bloques con nombre
   (cada bloque agrupa varios ejercicios), cuestionarios personalizables,
-  "Planificación" (antes "Calendario": asignar sesiones/cuestionarios a
-  uno o varios deportistas, con opción de crear una sesión nueva sin salir
-  del flujo de asignación), seguimiento de lo completado, sección
+  "Planificación" (antes "Calendario"): vista Semana y vista Mes, botones
+  ‹ Hoy ›, el día actual resaltado en rojo; al entrar siempre abre la
+  semana/mes actual. Al pulsar un día: "Añadir sesión" o "Añadir
+  cuestionario" (se pueden asignar varios cuestionarios distintos el mismo
+  día; el mismo cuestionario no se repite para el mismo deportista y día).
+  Asignar a uno o varios deportistas, con opción de crear una sesión nueva
+  sin salir del flujo. Desde "Deportistas", botón "Planificación" que abre
+  la planificación filtrada por ese deportista. Seguimiento de lo completado, sección
   "Compartir" con los dos enlaces de invitación.
 - Deportista: su semana con lo asignado, detalle de sesión (marcar
   bloques/ejercicios hechos, dejar RPE y comentarios, reproductor de
